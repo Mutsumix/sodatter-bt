@@ -1,0 +1,19 @@
+# Android
+android/.gradle/
+android/local.properties
+android/build/
+android/app/build/
+android/**/*.iml
+android/.idea/
+
+# macOS
+.DS_Store
+*.swp
+
+# Node (readdy_export)
+readdy_export/node_modules/
+readdy_export/dist/
+
+# IDE
+.idea/
+*.iml

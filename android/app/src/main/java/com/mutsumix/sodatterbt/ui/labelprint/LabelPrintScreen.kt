@@ -31,10 +31,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +41,13 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mutsumix.sodatterbt.data.db.entity.CultivationEntity
+import com.mutsumix.sodatterbt.data.db.entity.DeviceEntity
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private val Primary = Color(0xFF5B8BD4)
 private val Secondary = Color(0xFF6DAE72)
@@ -50,20 +55,7 @@ private val OnBackground = Color(0xFF1A1A1C)
 private val Muted = Color(0xFF6B6B6B)
 private val Divider = Color(0xFFD4D4D4)
 
-private data class DeviceLabelInfo(
-    val id: String,
-    val cropName: String,
-    val manufacturer: String,
-    val seedingDate: String,
-    val harvestDate: String,
-    val weight: Double,
-    val daysElapsed: Int,
-)
-
-private val mockDevices = mapOf(
-    0 to DeviceLabelInfo("A", "ミニトマト", "タキイ種苗", "2026/01/04", "2026/02/15", 142.5, 42),
-    1 to DeviceLabelInfo("B", "バジル", "サカタのタネ", "2026/02/01", "2026/03/18", 87.0, 45),
-)
+private val dateFormat = SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,13 +63,17 @@ fun LabelPrintScreen(
     deviceId: Int,
     onBack: () -> Unit,
     onDone: () -> Unit,
+    viewModel: LabelPrintViewModel = hiltViewModel(),
 ) {
-    val device = mockDevices[deviceId % mockDevices.size] ?: mockDevices[0]!!
-    var printerConnected by remember { mutableStateOf(false) }
-    var connecting by remember { mutableStateOf(false) }
-    var printing by remember { mutableStateOf(false) }
-    var showToast by remember { mutableStateOf(false) }
-    var toastMessage by remember { mutableStateOf("") }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // トーストを一定時間後にクリア
+    LaunchedEffect(uiState.toastMessage) {
+        if (uiState.toastMessage != null) {
+            kotlinx.coroutines.delay(2_500)
+            viewModel.clearToast()
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -100,16 +96,9 @@ fun LabelPrintScreen(
             },
             bottomBar = {
                 LabelPrintBottomBar(
-                    printerConnected = printerConnected,
-                    printing = printing,
-                    onPrint = {
-                        if (!printing) {
-                            printing = true
-                            toastMessage = "ラベルをプリンターに送信しました"
-                            showToast = true
-                            printing = false
-                        }
-                    },
+                    printerConnected = uiState.printerConnected,
+                    isPrinting = uiState.isPrinting,
+                    onPrint = { viewModel.print() },
                     onDone = onDone,
                 )
             },
@@ -123,20 +112,20 @@ fun LabelPrintScreen(
                     .padding(horizontal = 16.dp, vertical = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
-                LabelMockup(device = device)
+                val cultivation = uiState.cultivation
+                val device = uiState.device
+                if (cultivation != null && device != null) {
+                    LabelMockup(device = device, cultivation = cultivation)
+                }
                 PrinterStatusCard(
-                    connected = printerConnected,
-                    connecting = connecting,
-                    onConnect = {
-                        connecting = true
-                        printerConnected = true
-                        connecting = false
-                    },
+                    connected = uiState.printerConnected,
+                    isDiscovering = uiState.isDiscovering,
+                    onConnect = { viewModel.connectPrinter() },
                 )
             }
         }
 
-        if (showToast) {
+        if (uiState.toastMessage != null) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -147,14 +136,23 @@ fun LabelPrintScreen(
                     )
                     .padding(horizontal = 20.dp, vertical = 10.dp),
             ) {
-                Text(text = toastMessage, fontSize = 13.sp, color = Color.White)
+                Text(text = uiState.toastMessage!!, fontSize = 13.sp, color = Color.White)
             }
         }
     }
 }
 
 @Composable
-private fun LabelMockup(device: DeviceLabelInfo) {
+private fun LabelMockup(device: DeviceEntity, cultivation: CultivationEntity) {
+    val daysElapsed = cultivation.harvestDate?.let {
+        ((it - cultivation.seedingDate) / 86_400_000L).toInt()
+    } ?: ((System.currentTimeMillis() - cultivation.seedingDate) / 86_400_000L).toInt()
+    val seedingDateStr = dateFormat.format(Date(cultivation.seedingDate))
+    val harvestDateStr = cultivation.harvestDate?.let { dateFormat.format(Date(it)) } ?: "---"
+    val weightStr = cultivation.harvestWeightGram?.let {
+        if (it % 1f == 0f) "${it.toInt()}.0" else "$it"
+    } ?: "---"
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -169,40 +167,26 @@ private fun LabelMockup(device: DeviceLabelInfo) {
             Column {
                 PerforatedEdge()
                 Column(modifier = Modifier.padding(20.dp)) {
-                    // App name watermark
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Text("🌿", fontSize = 14.sp)
-                        Text(
-                            "Sodatter-BT",
-                            color = Color(0xFFABABAB),
-                            fontSize = 10.sp,
-                            letterSpacing = 2.sp,
-                        )
+                        Text("Sodatter-BT", color = Color(0xFFABABAB), fontSize = 10.sp, letterSpacing = 2.sp)
                     }
                     Spacer(modifier = Modifier.height(12.dp))
-
-                    // Crop name
-                    Text(device.cropName, color = OnBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text(device.manufacturer, color = Muted, fontSize = 12.sp)
+                    Text(cultivation.varietyName, color = OnBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(cultivation.manufacturer, color = Muted, fontSize = 12.sp)
                     Spacer(modifier = Modifier.height(12.dp))
-
                     HorizontalDivider(color = Divider)
                     Spacer(modifier = Modifier.height(12.dp))
-
-                    // Dates
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        LabelDateRow(icon = "🌱", label = "播種：", value = device.seedingDate)
-                        LabelDateRow(icon = "✂", label = "収穫：", value = device.harvestDate)
+                        LabelDateRow(icon = "🌱", label = "播種：", value = seedingDateStr)
+                        LabelDateRow(icon = "✂", label = "収穫：", value = harvestDateStr)
                     }
                     Spacer(modifier = Modifier.height(12.dp))
-
                     HorizontalDivider(color = Divider)
                     Spacer(modifier = Modifier.height(12.dp))
-
-                    // Weight + QR row
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -210,16 +194,15 @@ private fun LabelMockup(device: DeviceLabelInfo) {
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("重量", color = Muted, fontSize = 12.sp)
-                            val weightText = if (device.weight % 1.0 == 0.0) "${device.weight.toInt()}.0" else "${device.weight}"
-                            Text(weightText, color = OnBackground, fontSize = 36.sp)
+                            Text(weightStr, color = OnBackground, fontSize = 36.sp)
                             Text("g", color = Muted, fontSize = 14.sp)
                             Spacer(modifier = Modifier.height(8.dp))
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
-                                DeviceSlotBadge(label = device.id, size = 20)
-                                Text("Day ${device.daysElapsed}", color = Muted, fontSize = 12.sp)
+                                DeviceSlotBadge(label = device.name, size = 20)
+                                Text("Day $daysElapsed", color = Muted, fontSize = 12.sp)
                             }
                         }
                         QrCodeMock(size = 64)
@@ -228,11 +211,7 @@ private fun LabelMockup(device: DeviceLabelInfo) {
                 PerforatedEdge()
             }
         }
-        Text(
-            "QRコードは生育フォトログにリンクします",
-            color = Muted,
-            fontSize = 12.sp,
-        )
+        Text("QRコードは生育フォトログにリンクします", color = Muted, fontSize = 12.sp)
     }
 }
 
@@ -311,7 +290,7 @@ private fun QrCodeMock(size: Int) {
 @Composable
 private fun PrinterStatusCard(
     connected: Boolean,
-    connecting: Boolean,
+    isDiscovering: Boolean,
     onConnect: () -> Unit,
 ) {
     Surface(
@@ -336,19 +315,18 @@ private fun PrinterStatusCard(
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    "Star SM-S210i",
-                    color = OnBackground,
-                    fontSize = 14.sp,
-                    fontFamily = FontFamily.Default,
-                )
+                Text("Star SM-S210i", color = OnBackground, fontSize = 14.sp, fontFamily = FontFamily.Default)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     StatusDot(connected = connected)
                     Text(
-                        if (connected) "接続済み" else "未接続",
+                        when {
+                            connected -> "接続済み"
+                            isDiscovering -> "検索中…"
+                            else -> "未接続"
+                        },
                         color = if (connected) Muted else Color(0xFFABABAB),
                         fontSize = 12.sp,
                     )
@@ -357,12 +335,12 @@ private fun PrinterStatusCard(
             if (!connected) {
                 OutlinedButton(
                     onClick = onConnect,
-                    enabled = !connecting,
+                    enabled = !isDiscovering,
                     shape = RoundedCornerShape(4.dp),
                     border = BorderStroke(1.dp, Primary),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 4.dp),
                 ) {
-                    Text(if (connecting) "接続中…" else "接続する", color = Primary, fontSize = 14.sp)
+                    Text(if (isDiscovering) "接続中…" else "接続する", color = Primary, fontSize = 14.sp)
                 }
             }
         }
@@ -395,7 +373,7 @@ private fun DeviceSlotBadge(label: String, size: Int = 24) {
 @Composable
 private fun LabelPrintBottomBar(
     printerConnected: Boolean,
-    printing: Boolean,
+    isPrinting: Boolean,
     onPrint: () -> Unit,
     onDone: () -> Unit,
 ) {
@@ -411,7 +389,7 @@ private fun LabelPrintBottomBar(
             ) {
                 OutlinedButton(
                     onClick = onPrint,
-                    enabled = !printing,
+                    enabled = !isPrinting,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
@@ -420,7 +398,7 @@ private fun LabelPrintBottomBar(
                 ) {
                     Text("🖨", color = Primary, fontSize = 16.sp)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(if (printing) "印刷中…" else "印刷", color = Primary, fontSize = 16.sp)
+                    Text(if (isPrinting) "印刷中…" else "印刷", color = Primary, fontSize = 16.sp)
                 }
                 OutlinedButton(
                     onClick = onDone,

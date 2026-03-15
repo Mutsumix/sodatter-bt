@@ -23,12 +23,12 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -40,6 +40,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mutsumix.sodatterbt.data.db.entity.DeviceEntity
 
 private val Primary = Color(0xFF5B8BD4)
 private val Secondary = Color(0xFF6DAE72)
@@ -48,27 +51,21 @@ private val Muted = Color(0xFF6B6B6B)
 private val Divider = Color(0xFFD4D4D4)
 private val Surface2 = Color(0xFFF7F7F7)
 
-private data class DeviceConfig(val id: String, val tag: String?)
-private data class PeripheralStatus(val name: String, val connected: Boolean)
-
-private val deviceConfigs = listOf(
-    DeviceConfig("A", "AA:BB:CC:DD:EE:01"),
-    DeviceConfig("B", "AA:BB:CC:DD:EE:02"),
-    DeviceConfig("C", null),
-    DeviceConfig("D", null),
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(innerPadding: PaddingValues) {
-    val peripherals = remember {
-        mutableStateListOf(
-            PeripheralStatus("Decent Scale", connected = true),
-            PeripheralStatus("Star SM-S210i", connected = false),
-        )
-    }
+fun SettingsScreen(
+    innerPadding: PaddingValues,
+    viewModel: SettingsViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var licensesOpen by remember { mutableStateOf(false) }
     var showExportToast by remember { mutableStateOf(false) }
+
+    // Edit dialogs state
+    var editingKey by remember { mutableStateOf<String?>(null) }
+    var editingValue by remember { mutableStateOf("") }
+    var editingLabel by remember { mutableStateOf("") }
+    var editingDeviceId by remember { mutableStateOf<Int?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -80,32 +77,52 @@ fun SettingsScreen(innerPadding: PaddingValues) {
         ) {
             item {
                 SettingsSection(title = "デバイス") {
-                    DevicesSection(devices = deviceConfigs)
+                    DevicesSection(
+                        devices = uiState.devices,
+                        onTagEdit = { deviceId, currentMac ->
+                            editingDeviceId = deviceId
+                            editingValue = currentMac ?: ""
+                            editingLabel = "タグMACアドレス"
+                            editingKey = "tag_mac_$deviceId"
+                        },
+                    )
                 }
             }
             item {
                 SettingsSection(title = "周辺機器") {
                     PeripheralsSection(
-                        peripherals = peripherals,
-                        onToggleConnect = { idx ->
-                            val p = peripherals[idx]
-                            peripherals[idx] = p.copy(connected = !p.connected)
+                        scaleIdentifier = uiState.scaleIdentifier,
+                        printerIdentifier = uiState.printerIdentifier,
+                        esp32Ip = uiState.esp32Ip,
+                        onEditScale = {
+                            editingDeviceId = null
+                            editingKey = "scale_identifier"
+                            editingValue = uiState.scaleIdentifier
+                            editingLabel = "Decent Scale BLEアドレス"
+                        },
+                        onEditPrinter = {
+                            editingDeviceId = null
+                            editingKey = "printer_identifier"
+                            editingValue = uiState.printerIdentifier
+                            editingLabel = "プリンターMACアドレス"
+                        },
+                        onEditEsp32 = {
+                            editingDeviceId = null
+                            editingKey = "esp32_ip"
+                            editingValue = uiState.esp32Ip
+                            editingLabel = "ESP32 IPアドレス"
                         },
                     )
                 }
             }
             item {
                 SettingsSection(title = "データ") {
-                    DataSection(
-                        onExport = { showExportToast = true },
-                    )
+                    DataSection(onExport = { showExportToast = true })
                 }
             }
             item {
                 SettingsSection(title = "このアプリについて") {
-                    AboutSection(
-                        onLicensesClick = { licensesOpen = true },
-                    )
+                    AboutSection(onLicensesClick = { licensesOpen = true })
                 }
             }
         }
@@ -118,7 +135,7 @@ fun SettingsScreen(innerPadding: PaddingValues) {
                 contentAlignment = Alignment.BottomCenter,
             ) {
                 Surface(
-                    shape = CircleShape,
+                    shape = RoundedCornerShape(24.dp),
                     color = OnBackground.copy(alpha = 0.8f),
                 ) {
                     Text(
@@ -127,6 +144,56 @@ fun SettingsScreen(innerPadding: PaddingValues) {
                         fontSize = 14.sp,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
                     )
+                }
+            }
+        }
+    }
+
+    // 編集ダイアログ
+    if (editingKey != null) {
+        Dialog(
+            onDismissRequest = { editingKey = null },
+        ) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White,
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(editingLabel, color = OnBackground, fontSize = 16.sp)
+                    OutlinedTextField(
+                        value = editingValue,
+                        onValueChange = { editingValue = it },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        TextButton(onClick = { editingKey = null }) {
+                            Text("キャンセル", color = Muted)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = {
+                            val devId = editingDeviceId
+                            when {
+                                devId != null -> viewModel.updateTagMac(
+                                    devId,
+                                    editingValue.ifBlank { null },
+                                )
+                                editingKey == "scale_identifier" -> viewModel.saveScaleIdentifier(editingValue)
+                                editingKey == "printer_identifier" -> viewModel.savePrinterIdentifier(editingValue)
+                                editingKey == "esp32_ip" -> viewModel.saveEsp32Ip(editingValue)
+                            }
+                            editingKey = null
+                        }) {
+                            Text("保存", color = Primary)
+                        }
+                    }
                 }
             }
         }
@@ -148,29 +215,24 @@ fun SettingsScreen(innerPadding: PaddingValues) {
 }
 
 @Composable
-private fun SettingsSection(
-    title: String,
-    content: @Composable () -> Unit,
-) {
+private fun SettingsSection(title: String, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionHeader(text = title)
+        Text(
+            text = title,
+            color = Muted,
+            fontSize = 12.sp,
+            letterSpacing = 1.sp,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
         content()
     }
 }
 
 @Composable
-private fun SectionHeader(text: String) {
-    Text(
-        text = text,
-        color = Muted,
-        fontSize = 12.sp,
-        letterSpacing = 1.sp,
-        modifier = Modifier.padding(horizontal = 4.dp),
-    )
-}
-
-@Composable
-private fun DevicesSection(devices: List<DeviceConfig>) {
+private fun DevicesSection(
+    devices: List<DeviceEntity>,
+    onTagEdit: (deviceId: Int, currentMac: String?) -> Unit,
+) {
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
@@ -179,12 +241,9 @@ private fun DevicesSection(devices: List<DeviceConfig>) {
     ) {
         Column {
             devices.forEachIndexed { idx, device ->
-                DeviceRow(device = device)
+                DeviceRow(device = device, onEdit = { onTagEdit(device.id, device.tagMacAddress) })
                 if (idx < devices.size - 1) {
-                    HorizontalDivider(
-                        color = Color(0xFFF0F0F0),
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    )
+                    HorizontalDivider(color = Color(0xFFF0F0F0), modifier = Modifier.padding(horizontal = 16.dp))
                 }
             }
         }
@@ -192,7 +251,7 @@ private fun DevicesSection(devices: List<DeviceConfig>) {
 }
 
 @Composable
-private fun DeviceRow(device: DeviceConfig) {
+private fun DeviceRow(device: DeviceEntity, onEdit: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -204,12 +263,12 @@ private fun DeviceRow(device: DeviceConfig) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            DeviceSlotBadge(label = device.id)
+            DeviceSlotBadge(label = device.name)
             Column {
-                Text("デバイス ${device.id}", color = OnBackground, fontSize = 14.sp)
-                if (device.tag != null) {
+                Text("デバイス ${device.name}", color = OnBackground, fontSize = 14.sp)
+                if (device.tagMacAddress != null) {
                     Text(
-                        "タグ: ${device.tag}",
+                        "タグ: ${device.tagMacAddress}",
                         color = Muted,
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
@@ -219,14 +278,20 @@ private fun DeviceRow(device: DeviceConfig) {
                 }
             }
         }
-        Text("›", color = Color(0xFFC0C0C0), fontSize = 18.sp)
+        TextButton(onClick = onEdit, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+            Text("›", color = Color(0xFFC0C0C0), fontSize = 18.sp)
+        }
     }
 }
 
 @Composable
 private fun PeripheralsSection(
-    peripherals: List<PeripheralStatus>,
-    onToggleConnect: (Int) -> Unit,
+    scaleIdentifier: String,
+    printerIdentifier: String,
+    esp32Ip: String,
+    onEditScale: () -> Unit,
+    onEditPrinter: () -> Unit,
+    onEditEsp32: () -> Unit,
 ) {
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -235,37 +300,40 @@ private fun PeripheralsSection(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column {
-            PeripheralRow(
+            SettingRow(
                 icon = "⚖",
-                name = peripherals[0].name,
-                connected = peripherals[0].connected,
-                onConnect = { onToggleConnect(0) },
+                label = "Decent Scale",
+                value = scaleIdentifier.ifBlank { "未設定" },
+                connected = scaleIdentifier.isNotBlank(),
+                onEdit = onEditScale,
             )
-            HorizontalDivider(
-                color = Color(0xFFF0F0F0),
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-            PeripheralRow(
+            HorizontalDivider(color = Color(0xFFF0F0F0), modifier = Modifier.padding(horizontal = 16.dp))
+            SettingRow(
                 icon = "🖨",
-                name = peripherals[1].name,
-                connected = peripherals[1].connected,
-                onConnect = { onToggleConnect(1) },
+                label = "Star SM-S210i",
+                value = printerIdentifier.ifBlank { "未設定" },
+                connected = printerIdentifier.isNotBlank(),
+                onEdit = onEditPrinter,
             )
-            HorizontalDivider(
-                color = Color(0xFFF0F0F0),
-                modifier = Modifier.padding(horizontal = 16.dp),
+            HorizontalDivider(color = Color(0xFFF0F0F0), modifier = Modifier.padding(horizontal = 16.dp))
+            SettingRow(
+                icon = "📶",
+                label = "ESP32 アクセスポイント",
+                value = esp32Ip.ifBlank { "未設定" },
+                connected = esp32Ip.isNotBlank(),
+                onEdit = onEditEsp32,
             )
-            Esp32Row(ip = "192.168.4.1")
         }
     }
 }
 
 @Composable
-private fun PeripheralRow(
+private fun SettingRow(
     icon: String,
-    name: String,
+    label: String,
+    value: String,
     connected: Boolean,
-    onConnect: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -276,50 +344,23 @@ private fun PeripheralRow(
         Text(icon, fontSize = 16.sp, color = Muted)
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(name, color = OnBackground, fontSize = 14.sp)
+            Text(label, color = OnBackground, fontSize = 14.sp)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 StatusDot(connected = connected)
                 Text(
-                    if (connected) "接続済み" else "未接続",
-                    color = if (connected) Secondary else Color(0xFFABABAB),
+                    value,
+                    color = if (connected) Muted else Color(0xFFABABAB),
                     fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
                 )
-                if (!connected) {
-                    TextButton(
-                        onClick = onConnect,
-                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
-                    ) {
-                        Text("接続する", color = Primary, fontSize = 12.sp)
-                    }
-                }
             }
         }
-        Text("›", color = Color(0xFFC0C0C0), fontSize = 18.sp)
-    }
-}
-
-@Composable
-private fun Esp32Row(ip: String?) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("📶", fontSize = 16.sp, color = Muted)
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text("ESP32 アクセスポイント", color = OnBackground, fontSize = 14.sp)
-            if (ip != null) {
-                Text(ip, color = Muted, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
-            } else {
-                Text("未設定", color = Color(0xFFABABAB), fontSize = 12.sp)
-            }
+        TextButton(onClick = onEdit, contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)) {
+            Text("›", color = Color(0xFFC0C0C0), fontSize = 18.sp)
         }
-        Text("›", color = Color(0xFFC0C0C0), fontSize = 18.sp)
     }
 }
 
@@ -332,7 +373,6 @@ private fun DataSection(onExport: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column {
-            // Export Data
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -351,11 +391,7 @@ private fun DataSection(onExport: () -> Unit) {
                 }
                 Text("›", color = Color(0xFFC0C0C0), fontSize = 18.sp)
             }
-            HorizontalDivider(
-                color = Color(0xFFF0F0F0),
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-            // Cloud Sync
+            HorizontalDivider(color = Color(0xFFF0F0F0), modifier = Modifier.padding(horizontal = 16.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -400,10 +436,7 @@ private fun AboutSection(onLicensesClick: () -> Unit) {
                 Text("バージョン", color = OnBackground, fontSize = 14.sp, modifier = Modifier.weight(1f))
                 Text("1.0.0", color = Muted, fontSize = 14.sp)
             }
-            HorizontalDivider(
-                color = Color(0xFFF0F0F0),
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
+            HorizontalDivider(color = Color(0xFFF0F0F0), modifier = Modifier.padding(horizontal = 16.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -450,12 +483,14 @@ private fun DeviceSlotBadge(label: String) {
 private data class LibInfo(val name: String, val version: String, val license: String)
 
 private val libraries = listOf(
-    LibInfo("Jetpack Compose", "2024.x", "Apache 2.0"),
-    LibInfo("Kotlin", "2.0.0", "Apache 2.0"),
-    LibInfo("Room", "2.6.0", "Apache 2.0"),
-    LibInfo("Hilt", "2.51.0", "Apache 2.0"),
-    LibInfo("Navigation Compose", "2.8.0", "Apache 2.0"),
-    LibInfo("Coroutines", "1.8.0", "Apache 2.0"),
+    LibInfo("Jetpack Compose", "2024.12.01", "Apache 2.0"),
+    LibInfo("Kotlin", "2.0.21", "Apache 2.0"),
+    LibInfo("Room", "2.6.1", "Apache 2.0"),
+    LibInfo("Hilt", "2.52", "Apache 2.0"),
+    LibInfo("Navigation Compose", "2.8.5", "Apache 2.0"),
+    LibInfo("Coroutines", "1.9.0", "Apache 2.0"),
+    LibInfo("OkHttp", "4.12.0", "Apache 2.0"),
+    LibInfo("Coil", "2.7.0", "Apache 2.0"),
 )
 
 @Composable

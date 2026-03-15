@@ -1,6 +1,7 @@
 package com.mutsumix.sodatterbt.ui.labelprint
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -35,10 +37,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -75,52 +75,80 @@ fun LabelPrintScreen(
     val device = mockDevices[deviceId % mockDevices.size] ?: mockDevices[0]!!
     var printerConnected by remember { mutableStateOf(false) }
     var connecting by remember { mutableStateOf(false) }
+    var printing by remember { mutableStateOf(false) }
+    var showToast by remember { mutableStateOf(false) }
+    var toastMessage by remember { mutableStateOf("") }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("ラベルプレビュー", color = OnBackground, fontSize = 20.sp) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "戻る",
-                            tint = Muted,
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.White,
-                ),
-            )
-        },
-        bottomBar = {
-            LabelPrintBottomBar(
-                printerConnected = printerConnected,
-                onPrint = { /* mock print */ },
-                onDone = onDone,
-            )
-        },
-        containerColor = Color.White,
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 32.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-        ) {
-            LabelMockup(device = device)
-            PrinterStatusCard(
-                connected = printerConnected,
-                connecting = connecting,
-                onConnect = {
-                    connecting = true
-                    printerConnected = true
-                    connecting = false
-                },
-            )
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                CenterAlignedTopAppBar(
+                    title = { Text("ラベルプレビュー", color = OnBackground, fontSize = 20.sp) },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "戻る",
+                                tint = Muted,
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color.White,
+                    ),
+                )
+            },
+            bottomBar = {
+                LabelPrintBottomBar(
+                    printerConnected = printerConnected,
+                    printing = printing,
+                    onPrint = {
+                        if (!printing) {
+                            printing = true
+                            toastMessage = "ラベルをプリンターに送信しました"
+                            showToast = true
+                            printing = false
+                        }
+                    },
+                    onDone = onDone,
+                )
+            },
+            containerColor = Color.White,
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
+                LabelMockup(device = device)
+                PrinterStatusCard(
+                    connected = printerConnected,
+                    connecting = connecting,
+                    onConnect = {
+                        connecting = true
+                        printerConnected = true
+                        connecting = false
+                    },
+                )
+            }
+        }
+
+        if (showToast) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 148.dp)
+                    .background(
+                        color = OnBackground.copy(alpha = 0.8f),
+                        shape = RoundedCornerShape(24.dp),
+                    )
+                    .padding(horizontal = 20.dp, vertical = 10.dp),
+            ) {
+                Text(text = toastMessage, fontSize = 13.sp, color = Color.White)
+            }
         }
     }
 }
@@ -194,7 +222,7 @@ private fun LabelMockup(device: DeviceLabelInfo) {
                                 Text("Day ${device.daysElapsed}", color = Muted, fontSize = 12.sp)
                             }
                         }
-                        QrCodeMockup()
+                        QrCodeMock(size = 64)
                     }
                 }
                 PerforatedEdge()
@@ -210,22 +238,23 @@ private fun LabelMockup(device: DeviceLabelInfo) {
 
 @Composable
 private fun PerforatedEdge() {
-    val dashColor = Divider
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(12.dp)
-            .drawBehind {
-                val dashEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f), 0f)
-                drawLine(
-                    color = dashColor,
-                    start = Offset(0f, size.height / 2),
-                    end = Offset(size.width, size.height / 2),
-                    pathEffect = dashEffect,
-                    strokeWidth = 1.dp.toPx(),
-                )
-            },
-    )
+            .padding(horizontal = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        repeat(20) {
+            Box(
+                modifier = Modifier
+                    .size(4.dp)
+                    .clip(CircleShape)
+                    .background(Divider),
+            )
+        }
+    }
 }
 
 @Composable
@@ -241,38 +270,38 @@ private fun LabelDateRow(icon: String, label: String, value: String) {
 }
 
 @Composable
-private fun QrCodeMockup() {
-    // Simple mock QR code using a grid
-    val pattern = listOf(
-        listOf(1, 1, 1, 0, 1, 1, 1),
-        listOf(1, 0, 1, 0, 1, 0, 1),
-        listOf(1, 1, 1, 0, 1, 1, 1),
-        listOf(0, 0, 0, 1, 0, 0, 0),
-        listOf(1, 1, 1, 0, 1, 0, 1),
-        listOf(1, 0, 0, 1, 0, 0, 1),
-        listOf(1, 1, 1, 0, 1, 1, 1),
+private fun QrCodeMock(size: Int) {
+    val cells = listOf(
+        listOf(1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1),
+        listOf(1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1),
+        listOf(1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 0, 1),
+        listOf(1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1),
+        listOf(1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 1, 0, 1),
+        listOf(1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1),
+        listOf(1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1),
+        listOf(0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0),
+        listOf(1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1),
+        listOf(0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0),
+        listOf(1, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1),
+        listOf(0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0),
+        listOf(1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 0),
+        listOf(1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1),
+        listOf(1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0),
+        listOf(1, 0, 1, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 1),
+        listOf(1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1),
+        listOf(1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0),
+        listOf(1, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 1, 0, 1, 1, 0, 1),
     )
-    Surface(
-        shape = RoundedCornerShape(4.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, Divider),
-        modifier = Modifier.padding(4.dp),
-    ) {
-        Column(modifier = Modifier.padding(4.dp)) {
-            pattern.forEach { row ->
-                Row {
-                    row.forEach { cell ->
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .padding(0.5.dp),
-                        ) {
-                            Surface(
-                                color = if (cell == 1) OnBackground else Color.White,
-                                modifier = Modifier.fillMaxSize(),
-                            ) {}
-                        }
-                    }
+    val cellSizeDp = (size / cells.size).dp
+    Column(modifier = Modifier.size(size.dp)) {
+        cells.forEach { row ->
+            Row {
+                row.forEach { cell ->
+                    Box(
+                        modifier = Modifier
+                            .size(cellSizeDp)
+                            .background(if (cell == 1) OnBackground else Color.White),
+                    )
                 }
             }
         }
@@ -343,7 +372,7 @@ private fun PrinterStatusCard(
 @Composable
 private fun StatusDot(connected: Boolean) {
     Surface(
-        shape = androidx.compose.foundation.shape.CircleShape,
+        shape = CircleShape,
         color = if (connected) Secondary else Divider,
         modifier = Modifier.size(8.dp),
     ) {}
@@ -366,6 +395,7 @@ private fun DeviceSlotBadge(label: String, size: Int = 24) {
 @Composable
 private fun LabelPrintBottomBar(
     printerConnected: Boolean,
+    printing: Boolean,
     onPrint: () -> Unit,
     onDone: () -> Unit,
 ) {
@@ -381,6 +411,7 @@ private fun LabelPrintBottomBar(
             ) {
                 OutlinedButton(
                     onClick = onPrint,
+                    enabled = !printing,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
@@ -389,7 +420,7 @@ private fun LabelPrintBottomBar(
                 ) {
                     Text("🖨", color = Primary, fontSize = 16.sp)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("印刷", color = Primary, fontSize = 16.sp)
+                    Text(if (printing) "印刷中…" else "印刷", color = Primary, fontSize = 16.sp)
                 }
                 OutlinedButton(
                     onClick = onDone,

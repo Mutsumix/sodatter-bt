@@ -32,16 +32,19 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private val Primary = Color(0xFF5B8BD4)
 private val Secondary = Color(0xFF6DAE72)
@@ -50,33 +53,32 @@ private val Muted = Color(0xFF6B6B6B)
 private val Divider = Color(0xFFD4D4D4)
 private val Error = Color(0xFFEC0000)
 
-private data class DeviceOption(val id: String, val inUse: Boolean)
-
-private val deviceOptions = listOf(
-    DeviceOption("A", inUse = true),
-    DeviceOption("B", inUse = true),
-    DeviceOption("C", inUse = false),
-    DeviceOption("D", inUse = false),
-)
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SeedingScreen(
     deviceId: Int,
     onBack: () -> Unit,
     onSaved: () -> Unit,
+    viewModel: SeedingViewModel = hiltViewModel(),
 ) {
-    var selectedDevice by remember { mutableStateOf<String?>(null) }
-    var variety by remember { mutableStateOf("") }
-    var manufacturer by remember { mutableStateOf("") }
-    var seedingDate by remember { mutableStateOf("2026-03-15") }
-    var deviceError by remember { mutableStateOf("") }
-    var varietyError by remember { mutableStateOf("") }
-    var submitted by remember { mutableStateOf(false) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    if (submitted) {
+    // deviceIdが有効な場合は初期選択
+    LaunchedEffect(deviceId, uiState.deviceOptions) {
+        if (deviceId > 0 && uiState.selectedDeviceId == null) {
+            val option = uiState.deviceOptions.firstOrNull { it.id == deviceId && !it.inUse }
+            if (option != null) viewModel.selectDevice(option.id)
+        }
+    }
+
+    // 保存完了時にコールバック
+    LaunchedEffect(uiState.isSaved) {
+        if (uiState.isSaved) onSaved()
+    }
+
+    if (uiState.isSaved) {
         SeedingSuccessScreen(
-            deviceId = selectedDevice ?: "",
+            deviceName = uiState.savedDeviceName,
             onBack = onBack,
         )
         return
@@ -101,23 +103,7 @@ fun SeedingScreen(
             )
         },
         bottomBar = {
-            SeedingBottomBar(
-                onRegister = {
-                    var hasError = false
-                    if (selectedDevice == null) {
-                        deviceError = "デバイスを選択してください"
-                        hasError = true
-                    }
-                    if (variety.isBlank()) {
-                        varietyError = "品種名を入力してください"
-                        hasError = true
-                    }
-                    if (!hasError) {
-                        submitted = true
-                        onSaved()
-                    }
-                },
-            )
+            SeedingBottomBar(onRegister = { viewModel.register() })
         },
         containerColor = Color.White,
     ) { innerPadding ->
@@ -130,26 +116,21 @@ fun SeedingScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             DeviceSelectorSection(
-                devices = deviceOptions,
-                selectedDevice = selectedDevice,
-                errorMessage = deviceError,
-                onDeviceSelected = { id ->
-                    selectedDevice = id
-                    deviceError = ""
-                },
+                devices = uiState.deviceOptions,
+                selectedDeviceId = uiState.selectedDeviceId,
+                errorMessage = uiState.deviceError,
+                onDeviceSelected = { viewModel.selectDevice(it) },
             )
             VarietyInputSection(
-                value = variety,
-                errorMessage = varietyError,
-                onValueChange = { variety = it; varietyError = "" },
+                value = uiState.variety,
+                errorMessage = uiState.varietyError,
+                onValueChange = { viewModel.setVariety(it) },
             )
             ManufacturerInputSection(
-                value = manufacturer,
-                onValueChange = { manufacturer = it },
+                value = uiState.manufacturer,
+                onValueChange = { viewModel.setManufacturer(it) },
             )
-            SeedingDateSection(
-                value = seedingDate,
-            )
+            SeedingDateSection(millis = uiState.seedingDateMillis)
             SeedPhotoSection()
         }
     }
@@ -157,7 +138,7 @@ fun SeedingScreen(
 
 @Composable
 private fun SeedingSuccessScreen(
-    deviceId: String,
+    deviceName: String,
     onBack: () -> Unit,
 ) {
     Box(
@@ -183,7 +164,7 @@ private fun SeedingSuccessScreen(
                 Text("登録が完了しました", color = OnBackground, fontSize = 18.sp)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    "デバイス $deviceId に播種情報を登録しました",
+                    "デバイス $deviceName に播種情報を登録しました",
                     color = Muted,
                     fontSize = 14.sp,
                 )
@@ -205,9 +186,9 @@ private fun SeedingSuccessScreen(
 @Composable
 private fun DeviceSelectorSection(
     devices: List<DeviceOption>,
-    selectedDevice: String?,
+    selectedDeviceId: Int?,
     errorMessage: String,
-    onDeviceSelected: (String) -> Unit,
+    onDeviceSelected: (Int) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionLabel(text = "Device")
@@ -215,7 +196,7 @@ private fun DeviceSelectorSection(
             devices.forEach { device ->
                 DeviceOptionButton(
                     device = device,
-                    isSelected = selectedDevice == device.id,
+                    isSelected = selectedDeviceId == device.id,
                     onClick = { if (!device.inUse) onDeviceSelected(device.id) },
                     modifier = Modifier.weight(1f),
                 )
@@ -234,16 +215,8 @@ private fun DeviceOptionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val borderColor = when {
-        device.inUse -> Divider
-        isSelected -> Secondary
-        else -> Secondary
-    }
-    val textColor = when {
-        device.inUse -> Color(0xFFB0B0B0)
-        isSelected -> Secondary
-        else -> Secondary
-    }
+    val borderColor = if (device.inUse) Divider else Secondary
+    val textColor = if (device.inUse) Color(0xFFB0B0B0) else Secondary
     val borderWidth = if (isSelected && !device.inUse) 2.dp else 1.dp
 
     OutlinedButton(
@@ -255,7 +228,7 @@ private fun DeviceOptionButton(
         contentPadding = PaddingValues(4.dp),
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(device.id, color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text(device.name, color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
             if (device.inUse) {
                 Text("In use", color = Color(0xFFB0B0B0), fontSize = 10.sp)
             }
@@ -318,7 +291,8 @@ private fun ManufacturerInputSection(
 }
 
 @Composable
-private fun SeedingDateSection(value: String) {
+private fun SeedingDateSection(millis: Long) {
+    val display = SimpleDateFormat("yyyy年MM月dd日", Locale.JAPAN).format(Date(millis))
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionLabel(text = "Seeding Date")
         Surface(
@@ -333,8 +307,6 @@ private fun SeedingDateSection(value: String) {
                 modifier = Modifier.padding(horizontal = 12.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                val parts = value.split("-")
-                val display = if (parts.size == 3) "${parts[0]}年${parts[1]}月${parts[2]}日" else value
                 Text(display, color = OnBackground, fontSize = 16.sp)
             }
         }

@@ -31,6 +31,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private val Primary = Color(0xFF5B8BD4)
 private val Secondary = Color(0xFF6DAE72)
@@ -39,57 +44,27 @@ private val Muted = Color(0xFF6B6B6B)
 private val Divider = Color(0xFFD4D4D4)
 private val Surface2 = Color(0xFFF7F7F7)
 
-private data class HarvestRecord(
-    val id: String,
-    val variety: String,
-    val manufacturer: String,
-    val device: String,
-    val seedingDate: String,
-    val harvestDate: String,
-    val days: Int,
-    val weight: Int,
-)
-
-private val mockRecords = listOf(
-    HarvestRecord("1", "Sunny Lettuce", "Takii Seed", "A", "2026/01/04", "2026/02/15", 42, 185),
-    HarvestRecord("2", "Mini Tomato", "Sakata Seed", "B", "2026/01/10", "2026/02/20", 41, 142),
-    HarvestRecord("3", "Basil", "Tokita Seed", "C", "2026/01/18", "2026/02/28", 41, 98),
-    HarvestRecord("4", "Spinach", "Takii Seed", "D", "2025/12/20", "2026/01/28", 39, 210),
-    HarvestRecord("5", "Radish", "Sakata Seed", "A", "2025/12/05", "2026/01/12", 38, 165),
-)
-
-private fun groupByMonth(records: List<HarvestRecord>): Map<String, List<HarvestRecord>> {
-    val groups = mutableMapOf<String, MutableList<HarvestRecord>>()
-    records.forEach { r ->
-        val parts = r.harvestDate.split("/")
-        val key = "${parts[0]}/${parts[1]}"
-        groups.getOrPut(key) { mutableListOf() }.add(r)
-    }
-    return groups
-}
-
-private fun formatMonthLabel(key: String): String {
-    val parts = key.split("/")
-    return "${parts[0]}年${parts[1]}月"
-}
-
-private fun formatDateRange(seeding: String, harvest: String, days: Int): String {
-    val s = seeding.substring(5)
-    val h = harvest.substring(5)
-    return "$s → $h（${days}日間）"
-}
+private val yearMonthFormat = SimpleDateFormat("yyyy/MM", Locale.JAPAN)
+private val monthDayFormat = SimpleDateFormat("MM/dd", Locale.JAPAN)
 
 @Composable
-fun HistoryScreen(innerPadding: PaddingValues) {
-    var filterOpen by remember { mutableStateOf(false) }
+fun HistoryScreen(
+    innerPadding: PaddingValues,
+    viewModel: HistoryViewModel = hiltViewModel(),
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var activeFilter by remember { mutableStateOf<String?>(null) }
+    var filterOpen by remember { mutableStateOf(false) }
 
     val filtered = if (activeFilter != null) {
-        mockRecords.filter { it.device == activeFilter }
+        uiState.records.filter { it.deviceName == activeFilter }
     } else {
-        mockRecords
+        uiState.records
     }
-    val grouped = groupByMonth(filtered)
+
+    val grouped = filtered.groupBy { record ->
+        record.cultivation.harvestDate?.let { yearMonthFormat.format(Date(it)) } ?: "未収穫"
+    }
     val sortedMonths = grouped.keys.sortedDescending()
 
     Column(
@@ -97,7 +72,6 @@ fun HistoryScreen(innerPadding: PaddingValues) {
             .fillMaxSize()
             .padding(innerPadding),
     ) {
-        // Filter bar
         FilterBar(
             filterOpen = filterOpen,
             activeFilter = activeFilter,
@@ -116,7 +90,10 @@ fun HistoryScreen(innerPadding: PaddingValues) {
             ) {
                 sortedMonths.forEach { month ->
                     item {
-                        MonthHeader(month = month)
+                        val label = month.split("/").let {
+                            if (it.size == 2) "${it[0]}年${it[1]}月" else month
+                        }
+                        Text(label, color = Muted, fontSize = 12.sp, letterSpacing = 1.sp)
                     }
                     val records = grouped[month] ?: emptyList()
                     items(records) { record ->
@@ -191,37 +168,29 @@ private fun FilterBar(
 }
 
 @Composable
-private fun FilterChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-) {
+private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
     OutlinedButton(
         onClick = onClick,
         shape = RoundedCornerShape(4.dp),
         border = BorderStroke(1.dp, if (selected) Secondary else Divider),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
     ) {
-        Text(
-            label,
-            color = if (selected) Secondary else Muted,
-            fontSize = 12.sp,
-        )
+        Text(label, color = if (selected) Secondary else Muted, fontSize = 12.sp)
     }
 }
 
 @Composable
-private fun MonthHeader(month: String) {
-    Text(
-        text = formatMonthLabel(month),
-        color = Muted,
-        fontSize = 12.sp,
-        letterSpacing = 1.sp,
-    )
-}
-
-@Composable
 private fun HarvestRecordCard(record: HarvestRecord) {
+    val cultivation = record.cultivation
+    val seedingStr = monthDayFormat.format(Date(cultivation.seedingDate))
+    val harvestStr = cultivation.harvestDate?.let { monthDayFormat.format(Date(it)) } ?: "---"
+    val days = if (cultivation.harvestDate != null) {
+        ((cultivation.harvestDate - cultivation.seedingDate) / 86_400_000L).toInt()
+    } else 0
+    val weightStr = cultivation.harvestWeightGram?.let {
+        if (it % 1f == 0f) "${it.toInt()}g" else "${it}g"
+    } ?: "---"
+
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = Color.White,
@@ -232,7 +201,6 @@ private fun HarvestRecordCard(record: HarvestRecord) {
             modifier = Modifier.padding(0.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Left green accent bar
             Surface(
                 color = Secondary,
                 modifier = Modifier
@@ -240,7 +208,6 @@ private fun HarvestRecordCard(record: HarvestRecord) {
                     .height(72.dp),
             ) {}
 
-            // Thumbnail placeholder
             Box(modifier = Modifier.padding(start = 12.dp, end = 8.dp)) {
                 Surface(
                     shape = RoundedCornerShape(4.dp),
@@ -254,26 +221,20 @@ private fun HarvestRecordCard(record: HarvestRecord) {
                 }
             }
 
-            // Center info
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .padding(vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                Text(
-                    record.variety,
-                    color = OnBackground,
-                    fontSize = 16.sp,
-                    maxLines = 1,
-                )
+                Text(cultivation.varietyName, color = OnBackground, fontSize = 16.sp, maxLines = 1)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    DeviceSlotBadge(label = record.device, size = 20)
+                    DeviceSlotBadge(label = record.deviceName, size = 20)
                     Text(
-                        text = formatDateRange(record.seedingDate, record.harvestDate, record.days),
+                        text = "$seedingStr → $harvestStr（${days}日間）",
                         color = Muted,
                         fontSize = 12.sp,
                         maxLines = 1,
@@ -281,9 +242,8 @@ private fun HarvestRecordCard(record: HarvestRecord) {
                 }
             }
 
-            // Right weight
             Text(
-                text = "${record.weight}g",
+                text = weightStr,
                 color = OnBackground,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,

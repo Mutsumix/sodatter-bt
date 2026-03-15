@@ -21,18 +21,25 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mutsumix.sodatterbt.data.repository.DeviceWithCultivation
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private val Primary = Color(0xFF5B8BD4)
 private val Secondary = Color(0xFF6DAE72)
@@ -40,27 +47,29 @@ private val OnBackground = Color(0xFF1A1A1C)
 private val Muted = Color(0xFF6B6B6B)
 private val Divider = Color(0xFFD4D4D4)
 
-private data class DeviceItem(
-    val id: String,
-    val cropName: String = "",
-    val seedingDate: String = "",
-    val daysElapsed: Int = 0,
-    val isEmpty: Boolean = false,
-)
-
-private val mockDevices = listOf(
-    DeviceItem(id = "A", cropName = "ミニトマト", seedingDate = "2024-01-15", daysElapsed = 32, isEmpty = false),
-    DeviceItem(id = "B", cropName = "バジル", seedingDate = "2024-02-01", daysElapsed = 15, isEmpty = false),
-    DeviceItem(id = "C", isEmpty = true),
-    DeviceItem(id = "D", isEmpty = true),
-)
+private val dateFormat = SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN)
 
 @Composable
 fun HomeScreen(
     innerPadding: PaddingValues,
     onDeviceClick: (deviceId: Int) -> Unit,
     onEmptySlotClick: (deviceId: Int) -> Unit,
+    viewModel: HomeViewModel = hiltViewModel(),
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    if (uiState.isLoading) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            contentAlignment = Alignment.Center,
+        ) {
+            CircularProgressIndicator(color = Primary)
+        }
+        return
+    }
+
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
         modifier = Modifier
@@ -70,16 +79,16 @@ fun HomeScreen(
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        items(mockDevices) { device ->
-            if (device.isEmpty) {
+        items(uiState.devices) { item ->
+            if (item.cultivation == null) {
                 EmptyDeviceCard(
-                    deviceId = device.id,
-                    onClick = { onEmptySlotClick(device.id.first().code) },
+                    deviceLabel = item.device.name,
+                    onClick = { onEmptySlotClick(item.device.id) },
                 )
             } else {
                 ActiveDeviceCard(
-                    device = device,
-                    onClick = { onDeviceClick(device.id.first().code) },
+                    item = item,
+                    onClick = { onDeviceClick(item.device.id) },
                 )
             }
         }
@@ -88,7 +97,7 @@ fun HomeScreen(
 
 @Composable
 private fun EmptyDeviceCard(
-    deviceId: String,
+    deviceLabel: String,
     onClick: () -> Unit,
 ) {
     OutlinedButton(
@@ -104,13 +113,15 @@ private fun EmptyDeviceCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
+            DeviceSlotBadge(label = deviceLabel)
+            Spacer(modifier = Modifier.height(8.dp))
             Icon(
                 imageVector = Icons.Filled.Add,
                 contentDescription = null,
                 tint = Muted,
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(28.dp),
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "タップして登録",
                 color = Muted,
@@ -122,9 +133,13 @@ private fun EmptyDeviceCard(
 
 @Composable
 private fun ActiveDeviceCard(
-    device: DeviceItem,
+    item: DeviceWithCultivation,
     onClick: () -> Unit,
 ) {
+    val cultivation = item.cultivation!!
+    val daysElapsed = ((System.currentTimeMillis() - cultivation.seedingDate) / 86_400_000L).toInt()
+    val seedingDateStr = dateFormat.format(Date(cultivation.seedingDate))
+
     Card(
         onClick = onClick,
         modifier = Modifier
@@ -144,23 +159,23 @@ private fun ActiveDeviceCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top,
             ) {
-                DeviceSlotBadge(label = device.id)
+                DeviceSlotBadge(label = item.device.name)
             }
             Spacer(modifier = Modifier.weight(1f))
             Text(
-                text = device.cropName,
+                text = cultivation.varietyName,
                 color = OnBackground,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "播種日: ${device.seedingDate}",
+                text = "播種日: $seedingDateStr",
                 color = Muted,
                 fontSize = 12.sp,
             )
             Spacer(modifier = Modifier.height(8.dp))
-            DayBadge(days = device.daysElapsed)
+            DayBadge(days = daysElapsed)
         }
     }
 }

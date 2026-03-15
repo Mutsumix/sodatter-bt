@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -30,12 +31,21 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mutsumix.sodatterbt.data.db.entity.CultivationEntity
+import com.mutsumix.sodatterbt.data.db.entity.DeviceEntity
+import com.mutsumix.sodatterbt.data.db.entity.GrowthPhotoEntity
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private val Primary = Color(0xFF5B8BD4)
 private val Secondary = Color(0xFF6DAE72)
@@ -44,40 +54,8 @@ private val Muted = Color(0xFF6B6B6B)
 private val Divider = Color(0xFFD4D4D4)
 private val Surface2 = Color(0xFFF7F7F7)
 
-private data class GrowthLog(val date: String)
-
-private data class DeviceDetail(
-    val id: String,
-    val cropName: String,
-    val manufacturer: String,
-    val seedingDate: String,
-    val daysElapsed: Int,
-    val growthLogs: List<GrowthLog>,
-)
-
-private val mockDevices = mapOf(
-    0 to DeviceDetail(
-        id = "A",
-        cropName = "ミニトマト",
-        manufacturer = "タキイ種苗",
-        seedingDate = "2026/01/04",
-        daysElapsed = 32,
-        growthLogs = listOf(
-            GrowthLog("01/06"),
-            GrowthLog("01/12"),
-            GrowthLog("01/20"),
-            GrowthLog("02/01"),
-        ),
-    ),
-    1 to DeviceDetail(
-        id = "B",
-        cropName = "バジル",
-        manufacturer = "サカタのタネ",
-        seedingDate = "2026/02/01",
-        daysElapsed = 15,
-        growthLogs = emptyList(),
-    ),
-)
+private val dateFormat = SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN)
+private val monthDayFormat = SimpleDateFormat("MM/dd", Locale.JAPAN)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -85,15 +63,26 @@ fun DetailScreen(
     deviceId: Int,
     onBack: () -> Unit,
     onHarvestClick: () -> Unit,
+    viewModel: DetailViewModel = hiltViewModel(),
 ) {
-    val device = mockDevices[deviceId % mockDevices.size] ?: mockDevices[0]!!
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    if (uiState.isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = Primary)
+        }
+        return
+    }
+
+    val cultivation = uiState.cultivation
+    val device = uiState.device
 
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = device.cropName,
+                        text = cultivation?.varietyName ?: "",
                         color = OnBackground,
                         fontSize = 20.sp,
                     )
@@ -125,14 +114,19 @@ fun DetailScreen(
                 .padding(horizontal = 16.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            InfoCard(device = device)
-            GrowthLogSection(device = device)
+            if (cultivation != null && device != null) {
+                InfoCard(device = device, cultivation = cultivation)
+                GrowthLogSection(photos = uiState.growthPhotos)
+            }
         }
     }
 }
 
 @Composable
-private fun InfoCard(device: DeviceDetail) {
+private fun InfoCard(device: DeviceEntity, cultivation: CultivationEntity) {
+    val daysElapsed = ((System.currentTimeMillis() - cultivation.seedingDate) / 86_400_000L).toInt()
+    val seedingDateStr = dateFormat.format(Date(cultivation.seedingDate))
+
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
@@ -163,86 +157,75 @@ private fun InfoCard(device: DeviceDetail) {
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        DeviceSlotBadge(label = device.id)
-                        Text(device.cropName, color = OnBackground, fontSize = 16.sp)
+                        DeviceSlotBadge(label = device.name)
+                        Text(cultivation.varietyName, color = OnBackground, fontSize = 16.sp)
                     }
-                    Text(device.manufacturer, color = Muted, fontSize = 14.sp)
+                    Text(cultivation.manufacturer, color = Muted, fontSize = 14.sp)
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
             HorizontalDivider(color = Divider)
             Spacer(modifier = Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("播種日：${device.seedingDate}", color = Muted, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Text(
+                    "播種日：$seedingDateStr",
+                    color = Muted,
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(1f),
+                )
                 VerticalDivider(
                     modifier = Modifier
                         .height(16.dp)
                         .padding(horizontal = 12.dp),
                     color = Divider,
                 )
-                Text("Day ${device.daysElapsed}", color = Primary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    "Day $daysElapsed",
+                    color = Primary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun GrowthLogSection(device: DeviceDetail) {
+private fun GrowthLogSection(photos: List<GrowthPhotoEntity>) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SectionHeader(title = "生育ログ")
-        if (device.growthLogs.isEmpty()) {
-            GrowthLogEmpty()
+        Text("生育ログ", color = OnBackground, fontSize = 16.sp)
+        if (photos.isEmpty()) {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Surface2,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Box(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "まだ写真がありません。\nデバイスタグのQRをスキャンして追加してください。",
+                        color = Muted,
+                        fontSize = 14.sp,
+                    )
+                }
+            }
         } else {
-            GrowthLogStrip(logs = device.growthLogs)
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                photos.forEach { photo ->
+                    GrowthLogThumbnail(takenAt = photo.takenAt)
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun SectionHeader(title: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(title, color = OnBackground, fontSize = 16.sp)
-    }
-}
-
-@Composable
-private fun GrowthLogEmpty() {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = Surface2,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Box(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 32.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "まだ写真がありません。\nデバイスタグのQRをスキャンして追加してください。",
-                color = Muted,
-                fontSize = 14.sp,
-            )
-        }
-    }
-}
-
-@Composable
-private fun GrowthLogStrip(logs: List<GrowthLog>) {
-    Row(
-        modifier = Modifier.horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        logs.forEach { log ->
-            GrowthLogThumbnail(log = log)
-        }
-    }
-}
-
-@Composable
-private fun GrowthLogThumbnail(log: GrowthLog) {
+private fun GrowthLogThumbnail(takenAt: Long) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -257,7 +240,7 @@ private fun GrowthLogThumbnail(log: GrowthLog) {
                 Text("🌱", fontSize = 20.sp)
             }
         }
-        Text(log.date, color = Muted, fontSize = 10.sp)
+        Text(monthDayFormat.format(Date(takenAt)), color = Muted, fontSize = 10.sp)
     }
 }
 

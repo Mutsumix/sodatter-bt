@@ -30,16 +30,19 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private val Primary = Color(0xFF5B8BD4)
 private val Secondary = Color(0xFF6DAE72)
@@ -47,18 +50,7 @@ private val OnBackground = Color(0xFF1A1A1C)
 private val Muted = Color(0xFF6B6B6B)
 private val Divider = Color(0xFFD4D4D4)
 
-private data class DeviceHarvestInfo(
-    val id: String,
-    val cropName: String,
-    val manufacturer: String,
-    val seedingDate: String,
-    val daysElapsed: Int,
-)
-
-private val mockDevices = mapOf(
-    0 to DeviceHarvestInfo("A", "ミニトマト", "タキイ種苗", "2026/01/04", 42),
-    1 to DeviceHarvestInfo("B", "バジル", "サカタのタネ", "2026/02/01", 15),
-)
+private val dateFormat = SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,18 +59,24 @@ fun HarvestScreen(
     onBack: () -> Unit,
     onLabelPrintClick: () -> Unit,
     onComplete: () -> Unit,
+    viewModel: HarvestViewModel = hiltViewModel(),
 ) {
-    val device = mockDevices[deviceId % mockDevices.size] ?: mockDevices[0]!!
-    var weight by remember { mutableStateOf<Double?>(142.5) }
-    var scaleConnected by remember { mutableStateOf(true) }
-    var harvestDate by remember { mutableStateOf("2026-03-15") }
-    var completed by remember { mutableStateOf(false) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    if (completed) {
+    // 収穫完了後にナビゲーション
+    LaunchedEffect(uiState.isCompleted) {
+        if (uiState.isCompleted) onComplete()
+    }
+
+    val cultivation = uiState.cultivation
+    val device = uiState.device
+
+    if (uiState.isCompleted) {
         HarvestCompleteScreen(
-            device = device,
-            weight = weight,
-            harvestDate = harvestDate,
+            deviceName = device?.name ?: "",
+            cropName = cultivation?.varietyName ?: "",
+            weightGram = uiState.weightGram,
+            harvestDate = System.currentTimeMillis(),
             onGoHome = onComplete,
         )
         return
@@ -104,7 +102,7 @@ fun HarvestScreen(
         },
         bottomBar = {
             HarvestBottomBar(
-                onComplete = { completed = true },
+                onComplete = { viewModel.complete() },
                 onLabelPrint = onLabelPrintClick,
             )
         },
@@ -118,22 +116,33 @@ fun HarvestScreen(
                 .padding(horizontal = 16.dp, vertical = 24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            CropInfoCard(device = device)
+            if (device != null && cultivation != null) {
+                val daysElapsed = ((System.currentTimeMillis() - cultivation.seedingDate) / 86_400_000L).toInt()
+                CropInfoCard(
+                    deviceName = device.name,
+                    cropName = cultivation.varietyName,
+                    seedingDate = dateFormat.format(Date(cultivation.seedingDate)),
+                    daysElapsed = daysElapsed,
+                )
+            }
             WeightDisplay(
-                weight = weight,
-                scaleConnected = scaleConnected,
-                onTare = { weight = 0.0 },
+                weightGram = uiState.weightGram,
+                scaleConnected = uiState.scaleConnected,
+                isScanning = uiState.isScanning,
+                onTare = { viewModel.tare() },
+                onConnect = { viewModel.connectScale() },
             )
-            HarvestDateField(value = harvestDate)
+            HarvestDateField(millis = System.currentTimeMillis())
         }
     }
 }
 
 @Composable
 private fun HarvestCompleteScreen(
-    device: DeviceHarvestInfo,
-    weight: Double?,
-    harvestDate: String,
+    deviceName: String,
+    cropName: String,
+    weightGram: Float,
+    harvestDate: Long,
     onGoHome: () -> Unit,
 ) {
     Box(
@@ -160,13 +169,15 @@ private fun HarvestCompleteScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text("収穫が完了しました", color = OnBackground, fontSize = 18.sp)
-                Text("デバイス ${device.id}（${device.cropName}）", color = Muted, fontSize = 14.sp)
-                if (weight != null && weight > 0) {
-                    Text("収穫量：${weight} g", color = Muted, fontSize = 14.sp)
+                Text("デバイス $deviceName（$cropName）", color = Muted, fontSize = 14.sp)
+                if (weightGram > 0f) {
+                    Text("収穫量：${weightGram}g", color = Muted, fontSize = 14.sp)
                 }
-                val parts = harvestDate.split("-")
-                val display = if (parts.size == 3) "${parts[0]}/${parts[1]}/${parts[2]}" else harvestDate
-                Text("収穫日：$display", color = Muted, fontSize = 14.sp)
+                Text(
+                    "収穫日：${dateFormat.format(Date(harvestDate))}",
+                    color = Muted,
+                    fontSize = 14.sp,
+                )
             }
             OutlinedButton(
                 onClick = onGoHome,
@@ -183,7 +194,12 @@ private fun HarvestCompleteScreen(
 }
 
 @Composable
-private fun CropInfoCard(device: DeviceHarvestInfo) {
+private fun CropInfoCard(
+    deviceName: String,
+    cropName: String,
+    seedingDate: String,
+    daysElapsed: Int,
+) {
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = Color.White,
@@ -194,37 +210,34 @@ private fun CropInfoCard(device: DeviceHarvestInfo) {
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            DeviceSlotBadge(label = device.id)
+            DeviceSlotBadge(label = deviceName)
             Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                device.cropName,
-                color = OnBackground,
-                fontSize = 16.sp,
-                modifier = Modifier.weight(1f),
-            )
+            Text(cropName, color = OnBackground, fontSize = 16.sp, modifier = Modifier.weight(1f))
             VerticalDivider(
                 modifier = Modifier
                     .height(16.dp)
                     .padding(horizontal = 12.dp),
                 color = Divider,
             )
-            Text("播種日 ${device.seedingDate}", color = Muted, fontSize = 14.sp)
+            Text("播種日 $seedingDate", color = Muted, fontSize = 14.sp)
             VerticalDivider(
                 modifier = Modifier
                     .height(16.dp)
                     .padding(horizontal = 12.dp),
                 color = Divider,
             )
-            Text("Day ${device.daysElapsed}", color = Primary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text("Day $daysElapsed", color = Primary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
         }
     }
 }
 
 @Composable
 private fun WeightDisplay(
-    weight: Double?,
+    weightGram: Float,
     scaleConnected: Boolean,
+    isScanning: Boolean,
     onTare: () -> Unit,
+    onConnect: () -> Unit,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -237,44 +250,41 @@ private fun WeightDisplay(
             verticalAlignment = Alignment.Bottom,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            val weightText = when {
-                weight == null -> "---"
-                weight % 1.0 == 0.0 -> "${weight.toInt()}.0"
-                else -> "$weight"
-            }
-            Text(
-                text = weightText,
-                color = OnBackground,
-                fontSize = 48.sp,
-            )
-            Text(
-                text = "g",
-                color = Muted,
-                fontSize = 24.sp,
-                modifier = Modifier.padding(bottom = 4.dp),
-            )
-            OutlinedButton(
-                onClick = onTare,
-                modifier = Modifier
-                    .height(28.dp)
-                    .padding(bottom = 4.dp),
-                shape = RoundedCornerShape(4.dp),
-                border = BorderStroke(1.dp, Primary),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp),
-            ) {
-                Text("風袋引き", color = Primary, fontSize = 12.sp)
+            val weightText = if (weightGram == 0f) "---" else
+                if (weightGram % 1f == 0f) "${weightGram.toInt()}.0" else "$weightGram"
+            Text(text = weightText, color = OnBackground, fontSize = 48.sp)
+            Text(text = "g", color = Muted, fontSize = 24.sp, modifier = Modifier.padding(bottom = 4.dp))
+            if (scaleConnected) {
+                OutlinedButton(
+                    onClick = onTare,
+                    modifier = Modifier
+                        .height(28.dp)
+                        .padding(bottom = 4.dp),
+                    shape = RoundedCornerShape(4.dp),
+                    border = BorderStroke(1.dp, Primary),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                ) {
+                    Text("風袋引き", color = Primary, fontSize = 12.sp)
+                }
             }
         }
-        StatusDot(
-            connected = scaleConnected,
-            connectedLabel = "Decent Scale：接続済み",
-            disconnectedLabel = "未接続",
-        )
+        when {
+            scaleConnected -> StatusDot(connected = true, label = "Decent Scale：接続済み")
+            isScanning -> StatusDot(connected = false, label = "スキャン中…")
+            else -> OutlinedButton(
+                onClick = onConnect,
+                shape = RoundedCornerShape(4.dp),
+                border = BorderStroke(1.dp, Primary),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+            ) {
+                Text("スケールを接続", color = Primary, fontSize = 14.sp)
+            }
+        }
     }
 }
 
 @Composable
-private fun HarvestDateField(value: String) {
+private fun HarvestDateField(millis: Long) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("収穫日", color = OnBackground, fontSize = 14.sp)
         Surface(
@@ -289,20 +299,14 @@ private fun HarvestDateField(value: String) {
                 modifier = Modifier.padding(horizontal = 16.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                val parts = value.split("-")
-                val display = if (parts.size == 3) "${parts[0]}/${parts[1]}/${parts[2]}" else value
-                Text(display, color = OnBackground, fontSize = 16.sp)
+                Text(dateFormat.format(Date(millis)), color = OnBackground, fontSize = 16.sp)
             }
         }
     }
 }
 
 @Composable
-private fun StatusDot(
-    connected: Boolean,
-    connectedLabel: String,
-    disconnectedLabel: String,
-) {
+private fun StatusDot(connected: Boolean, label: String) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -313,7 +317,7 @@ private fun StatusDot(
             modifier = Modifier.size(8.dp),
         ) {}
         Text(
-            text = if (connected) connectedLabel else disconnectedLabel,
+            text = label,
             color = if (connected) Muted else Color(0xFFABABAB),
             fontSize = 14.sp,
         )

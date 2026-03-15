@@ -3,18 +3,25 @@ package com.mutsumix.sodatterbt.ui.seeding
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mutsumix.sodatterbt.data.db.entity.CultivationEntity
-import com.mutsumix.sodatterbt.data.db.entity.DeviceEntity
 import com.mutsumix.sodatterbt.data.repository.CultivationRepository
 import com.mutsumix.sodatterbt.data.repository.DeviceRepository
+import com.mutsumix.sodatterbt.data.repository.DeviceSettingRepository
+import com.mutsumix.sodatterbt.data.repository.SettingKey
+import com.mutsumix.sodatterbt.device.epaper.EpaperApiClient
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
+data class DeviceOption(val id: Int, val name: String, val inUse: Boolean)
+
 data class SeedingUiState(
-    val devices: List<DeviceEntity> = emptyList(),
+    val deviceOptions: List<DeviceOption> = emptyList(),
     val selectedDeviceId: Int? = null,
     val variety: String = "",
     val manufacturer: String = "",
@@ -23,12 +30,15 @@ data class SeedingUiState(
     val varietyError: String = "",
     val isSaved: Boolean = false,
     val savedDeviceName: String = "",
+    val isTagUpdating: Boolean = false,
 )
 
 @HiltViewModel
 class SeedingViewModel @Inject constructor(
     private val deviceRepository: DeviceRepository,
     private val cultivationRepository: CultivationRepository,
+    private val settingRepository: DeviceSettingRepository,
+    private val epaperApiClient: EpaperApiClient,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SeedingUiState())
@@ -38,7 +48,13 @@ class SeedingViewModel @Inject constructor(
         viewModelScope.launch {
             deviceRepository.getAllDevicesWithCultivation().collect { devicesWithCultivation ->
                 _uiState.value = _uiState.value.copy(
-                    devices = devicesWithCultivation.map { it.device }
+                    deviceOptions = devicesWithCultivation.map { item ->
+                        DeviceOption(
+                            id = item.device.id,
+                            name = item.device.name,
+                            inUse = item.cultivation != null,
+                        )
+                    }
                 )
             }
         }
@@ -77,7 +93,7 @@ class SeedingViewModel @Inject constructor(
         viewModelScope.launch {
             val deviceId = state.selectedDeviceId!!
             val device = deviceRepository.getById(deviceId) ?: return@launch
-            cultivationRepository.insert(
+            val cultivationId = cultivationRepository.insert(
                 CultivationEntity(
                     deviceId = deviceId,
                     varietyName = state.variety,
@@ -86,6 +102,24 @@ class SeedingViewModel @Inject constructor(
                 )
             )
             _uiState.value = _uiState.value.copy(isSaved = true, savedDeviceName = device.name)
+
+            // 電子ペーパータグ更新 (ESP32が設定済みの場合のみ)
+            val esp32Ip = settingRepository.get(SettingKey.ESP32_IP)
+            val tagMac = device.tagMacAddress
+            if (!esp32Ip.isNullOrBlank() && !tagMac.isNullOrBlank()) {
+                _uiState.value = _uiState.value.copy(isTagUpdating = true)
+                val dateStr = SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN)
+                    .format(Date(state.seedingDateMillis))
+                epaperApiClient.updateTag(
+                    apIpAddress = esp32Ip,
+                    tagMacAddress = tagMac,
+                    cultivationId = cultivationId,
+                    cropName = state.variety,
+                    seedingDate = dateStr,
+                    deviceName = device.name,
+                )
+                _uiState.value = _uiState.value.copy(isTagUpdating = false)
+            }
         }
     }
 }

@@ -12,7 +12,7 @@ import com.mutsumix.sodatterbt.data.repository.DeviceSettingRepository
 import com.mutsumix.sodatterbt.data.repository.SettingKey
 import com.mutsumix.sodatterbt.device.scale.DecentScaleManager
 import com.mutsumix.sodatterbt.device.scale.ScaleState
-import com.mutsumix.sodatterbt.navigation.Routes
+import com.mutsumix.sodatterbt.navigation.Harvest
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,7 +40,7 @@ class HarvestViewModel @Inject constructor(
     private val scaleManager: DecentScaleManager,
 ) : ViewModel() {
 
-    private val deviceId: Int = savedStateHandle.toRoute<Routes.Harvest>().deviceId
+    private val deviceId: Int = savedStateHandle.toRoute<Harvest>().deviceId
 
     private val _uiState = MutableStateFlow(HarvestUiState())
     val uiState: StateFlow<HarvestUiState> = _uiState.asStateFlow()

@@ -16,7 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedButtonDefaults
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -237,7 +237,7 @@ private fun ShutterButton(onClick: () -> Unit) {
         modifier = Modifier.size(64.dp),
         border = BorderStroke(2.dp, Secondary),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp),
-        colors = OutlinedButtonDefaults.outlinedButtonColors(containerColor = Color.White),
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White),
     ) {
         Surface(
             shape = CircleShape,
@@ -275,7 +275,7 @@ private fun PreviewOverlay(
                     .height(48.dp),
                 shape = RoundedCornerShape(8.dp),
                 border = BorderStroke(1.dp, Divider),
-                colors = OutlinedButtonDefaults.outlinedButtonColors(containerColor = Color.Transparent),
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.Transparent),
             ) {
                 Text("撮り直す", color = Color.White, fontSize = 16.sp)
             }
@@ -286,7 +286,7 @@ private fun PreviewOverlay(
                     .height(48.dp),
                 shape = RoundedCornerShape(8.dp),
                 border = BorderStroke(1.dp, Secondary),
-                colors = OutlinedButtonDefaults.outlinedButtonColors(containerColor = Color.White),
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White),
             ) {
                 Text("保存", color = Secondary, fontSize = 16.sp)
             }

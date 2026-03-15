@@ -9,7 +9,7 @@ import com.mutsumix.sodatterbt.data.db.entity.GrowthPhotoEntity
 import com.mutsumix.sodatterbt.data.repository.CultivationRepository
 import com.mutsumix.sodatterbt.data.repository.DeviceRepository
 import com.mutsumix.sodatterbt.data.repository.GrowthPhotoRepository
-import com.mutsumix.sodatterbt.navigation.Routes
+import com.mutsumix.sodatterbt.navigation.PhotoRecord
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,7 +34,7 @@ class PhotoRecordViewModel @Inject constructor(
     private val growthPhotoRepository: GrowthPhotoRepository,
 ) : ViewModel() {
 
-    private val deviceId: Int = savedStateHandle.toRoute<Routes.PhotoRecord>().deviceId
+    private val deviceId: Int = savedStateHandle.toRoute<PhotoRecord>().deviceId
 
     private val _uiState = MutableStateFlow(PhotoRecordUiState())
     val uiState: StateFlow<PhotoRecordUiState> = _uiState.asStateFlow()

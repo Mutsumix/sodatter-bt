@@ -12,9 +12,8 @@ import com.starmicronics.stario10.StarPrinter
 import com.starmicronics.stario10.starxpandcommand.DocumentBuilder
 import com.starmicronics.stario10.starxpandcommand.PrinterBuilder
 import com.starmicronics.stario10.starxpandcommand.StarXpandCommandBuilder
-import com.starmicronics.stario10.starxpandcommand.printer.CJKCharacterType
+import com.starmicronics.stario10.starxpandcommand.printer.CharacterEncodingType
 import com.starmicronics.stario10.starxpandcommand.printer.CutType
-import com.starmicronics.stario10.starxpandcommand.printer.InternationalCharacterType
 import com.starmicronics.stario10.starxpandcommand.printer.QRCodeLevel
 import com.starmicronics.stario10.starxpandcommand.printer.QRCodeParameter
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -91,8 +90,7 @@ class StarPrinterManager @Inject constructor(
             builder.addDocument(
                 DocumentBuilder().addPrinter(
                     PrinterBuilder()
-                        .styleInternationalCharacter(InternationalCharacterType.Japan)
-                        .styleCJKCharacterPriority(listOf(CJKCharacterType.Japanese))
+                        .styleSecondPriorityCharacterEncoding(CharacterEncodingType.Japanese)
                         .actionPrintText("${data.cropName}\n")
                         .actionPrintText("${data.manufacturer}\n")
                         .actionPrintText("播種: ${data.seedingDate}\n")

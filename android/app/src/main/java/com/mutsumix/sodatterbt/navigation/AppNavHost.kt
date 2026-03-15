@@ -107,7 +107,7 @@ fun AppNavHost() {
                 HarvestScreen(
                     deviceId = route.deviceId,
                     onBack = { navController.popBackStack() },
-                    onLabelPrintClick = { navController.navigate(LabelPrint(route.deviceId)) },
+                    onLabelPrintClick = { weight -> navController.navigate(LabelPrint(route.deviceId, weight)) },
                     onComplete = {
                         navController.navigate(Home) {
                             popUpTo(navController.graph.findStartDestination().id) {

@@ -13,11 +13,12 @@ import com.mutsumix.sodatterbt.data.repository.SettingKey
 import com.mutsumix.sodatterbt.device.printer.LabelData
 import com.mutsumix.sodatterbt.device.printer.PrinterState
 import com.mutsumix.sodatterbt.device.printer.StarPrinterManager
-import com.mutsumix.sodatterbt.navigation.Routes
+import com.mutsumix.sodatterbt.navigation.LabelPrint
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -27,6 +28,7 @@ import javax.inject.Inject
 data class LabelPrintUiState(
     val device: DeviceEntity? = null,
     val cultivation: CultivationEntity? = null,
+    val currentWeightGram: Float = 0f,
     val printerConnected: Boolean = false,
     val isDiscovering: Boolean = false,
     val isPrinting: Boolean = false,
@@ -43,9 +45,10 @@ class LabelPrintViewModel @Inject constructor(
     private val printerManager: StarPrinterManager,
 ) : ViewModel() {
 
-    private val deviceId: Int = savedStateHandle.toRoute<Routes.LabelPrint>().deviceId
+    private val route = savedStateHandle.toRoute<LabelPrint>()
+    private val deviceId: Int = route.deviceId
 
-    private val _uiState = MutableStateFlow(LabelPrintUiState())
+    private val _uiState = MutableStateFlow(LabelPrintUiState(currentWeightGram = route.weightGram))
     val uiState: StateFlow<LabelPrintUiState> = _uiState.asStateFlow()
 
     private var printerIdentifier: String? = null
@@ -54,8 +57,13 @@ class LabelPrintViewModel @Inject constructor(
         viewModelScope.launch {
             val device = deviceRepository.getById(deviceId)
             printerIdentifier = settingRepository.get(SettingKey.PRINTER_IDENTIFIER)
-            cultivationRepository.getHarvestedCultivations().collect { list ->
-                val cultivation = list.firstOrNull { it.deviceId == deviceId }
+            // アクティブ栽培優先、なければ収穫済みにフォールバック
+            combine(
+                cultivationRepository.getActiveCultivationByDevice(deviceId),
+                cultivationRepository.getHarvestedCultivations(),
+            ) { active, harvested ->
+                active ?: harvested.firstOrNull { it.deviceId == deviceId }
+            }.collect { cultivation ->
                 _uiState.value = _uiState.value.copy(
                     device = device,
                     cultivation = cultivation,
@@ -106,7 +114,10 @@ class LabelPrintViewModel @Inject constructor(
 
     fun print() {
         val state = _uiState.value
-        val cultivation = state.cultivation ?: return
+        val cultivation = state.cultivation ?: run {
+            _uiState.value = state.copy(toastMessage = "栽培データがありません")
+            return
+        }
         val device = state.device ?: return
         val identifier = printerIdentifier ?: run {
             _uiState.value = state.copy(toastMessage = "プリンターが接続されていません")
@@ -124,7 +135,7 @@ class LabelPrintViewModel @Inject constructor(
             manufacturer = cultivation.manufacturer,
             seedingDate = dateFormat.format(Date(cultivation.seedingDate)),
             harvestDate = cultivation.harvestDate?.let { dateFormat.format(Date(it)) } ?: "---",
-            weightGram = cultivation.harvestWeightGram ?: 0f,
+            weightGram = cultivation.harvestWeightGram ?: state.currentWeightGram,
             deviceName = device.name,
             daysElapsed = daysElapsed,
         )

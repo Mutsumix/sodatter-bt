@@ -115,7 +115,11 @@ fun LabelPrintScreen(
                 val cultivation = uiState.cultivation
                 val device = uiState.device
                 if (cultivation != null && device != null) {
-                    LabelMockup(device = device, cultivation = cultivation)
+                    LabelMockup(
+                        device = device,
+                        cultivation = cultivation,
+                        overrideWeightGram = uiState.currentWeightGram,
+                    )
                 }
                 PrinterStatusCard(
                     connected = uiState.printerConnected,
@@ -143,13 +147,14 @@ fun LabelPrintScreen(
 }
 
 @Composable
-private fun LabelMockup(device: DeviceEntity, cultivation: CultivationEntity) {
+private fun LabelMockup(device: DeviceEntity, cultivation: CultivationEntity, overrideWeightGram: Float = 0f) {
     val daysElapsed = cultivation.harvestDate?.let {
         ((it - cultivation.seedingDate) / 86_400_000L).toInt()
     } ?: ((System.currentTimeMillis() - cultivation.seedingDate) / 86_400_000L).toInt()
     val seedingDateStr = dateFormat.format(Date(cultivation.seedingDate))
     val harvestDateStr = cultivation.harvestDate?.let { dateFormat.format(Date(it)) } ?: "---"
-    val weightStr = cultivation.harvestWeightGram?.let {
+    val effectiveWeight = cultivation.harvestWeightGram ?: overrideWeightGram.takeIf { it > 0f }
+    val weightStr = effectiveWeight?.let {
         if (it % 1f == 0f) "${it.toInt()}.0" else "$it"
     } ?: "---"
 

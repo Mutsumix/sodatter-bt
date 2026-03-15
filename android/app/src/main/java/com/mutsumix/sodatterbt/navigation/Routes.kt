@@ -17,4 +17,4 @@ import kotlinx.serialization.Serializable
 
 @Serializable data class PhotoRecord(val deviceId: Int)
 @Serializable data class Harvest(val deviceId: Int)
-@Serializable data class LabelPrint(val deviceId: Int)
+@Serializable data class LabelPrint(val deviceId: Int, val weightGram: Float = 0f)

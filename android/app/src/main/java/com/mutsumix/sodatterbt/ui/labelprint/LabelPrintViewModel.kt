@@ -125,16 +125,15 @@ class LabelPrintViewModel @Inject constructor(
         }
 
         val dateFormat = SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN)
-        val daysElapsed = cultivation.harvestDate?.let {
-            ((it - cultivation.seedingDate) / 86_400_000L).toInt()
-        } ?: 0
+        val effectiveHarvestDate = cultivation.harvestDate ?: System.currentTimeMillis()
+        val daysElapsed = ((effectiveHarvestDate - cultivation.seedingDate) / 86_400_000L).toInt()
 
         val labelData = LabelData(
             cultivationId = cultivation.id,
             cropName = cultivation.varietyName,
             manufacturer = cultivation.manufacturer,
             seedingDate = dateFormat.format(Date(cultivation.seedingDate)),
-            harvestDate = cultivation.harvestDate?.let { dateFormat.format(Date(it)) } ?: "---",
+            harvestDate = dateFormat.format(Date(effectiveHarvestDate)),
             weightGram = cultivation.harvestWeightGram ?: state.currentWeightGram,
             deviceName = device.name,
             daysElapsed = daysElapsed,

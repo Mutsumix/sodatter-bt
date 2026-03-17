@@ -398,8 +398,6 @@ private fun HarvestBottomBar(
                     shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, Primary),
                 ) {
-                    Text("🖨", color = Primary, fontSize = 16.sp)
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text("ラベルを印刷", color = Primary, fontSize = 16.sp)
                 }
             }

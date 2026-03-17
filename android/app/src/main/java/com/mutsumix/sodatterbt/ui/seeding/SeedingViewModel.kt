@@ -11,6 +11,7 @@ import com.mutsumix.sodatterbt.device.epaper.EpaperApiClient
 import com.mutsumix.sodatterbt.device.epaper.EpaperResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -108,6 +109,12 @@ class SeedingViewModel @Inject constructor(
 
         viewModelScope.launch {
             val deviceId = state.selectedDeviceId!!
+            // 二重播種防止
+            val existing = cultivationRepository.getActiveCultivationByDevice(deviceId).first()
+            if (existing != null) {
+                _uiState.value = _uiState.value.copy(deviceError = "このデバイスには既に栽培中の記録があります")
+                return@launch
+            }
             val device = deviceRepository.getById(deviceId) ?: return@launch
             val cultivationId = cultivationRepository.insert(
                 CultivationEntity(

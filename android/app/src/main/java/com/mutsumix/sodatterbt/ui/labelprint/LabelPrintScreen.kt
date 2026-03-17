@@ -30,9 +30,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -66,6 +72,30 @@ fun LabelPrintScreen(
     viewModel: LabelPrintViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+
+    val btPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        if (results.values.all { it }) {
+            viewModel.connectPrinter()
+        }
+    }
+
+    fun connectPrinterWithPermission() {
+        val permissions = arrayOf(
+            Manifest.permission.BLUETOOTH_SCAN,
+            Manifest.permission.BLUETOOTH_CONNECT,
+        )
+        val allGranted = permissions.all {
+            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
+        }
+        if (allGranted) {
+            viewModel.connectPrinter()
+        } else {
+            btPermissionLauncher.launch(permissions)
+        }
+    }
 
     // トーストを一定時間後にクリア
     LaunchedEffect(uiState.toastMessage) {
@@ -124,7 +154,7 @@ fun LabelPrintScreen(
                 PrinterStatusCard(
                     connected = uiState.printerConnected,
                     isDiscovering = uiState.isDiscovering,
-                    onConnect = { viewModel.connectPrinter() },
+                    onConnect = { connectPrinterWithPermission() },
                 )
             }
         }
@@ -152,7 +182,7 @@ private fun LabelMockup(device: DeviceEntity, cultivation: CultivationEntity, ov
         ((it - cultivation.seedingDate) / 86_400_000L).toInt()
     } ?: ((System.currentTimeMillis() - cultivation.seedingDate) / 86_400_000L).toInt()
     val seedingDateStr = dateFormat.format(Date(cultivation.seedingDate))
-    val harvestDateStr = cultivation.harvestDate?.let { dateFormat.format(Date(it)) } ?: "---"
+    val harvestDateStr = dateFormat.format(Date(cultivation.harvestDate ?: System.currentTimeMillis()))
     val effectiveWeight = cultivation.harvestWeightGram ?: overrideWeightGram.takeIf { it > 0f }
     val weightStr = effectiveWeight?.let {
         if (it % 1f == 0f) "${it.toInt()}.0" else "$it"
@@ -401,8 +431,6 @@ private fun LabelPrintBottomBar(
                     shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, Primary),
                 ) {
-                    Text("🖨", color = Primary, fontSize = 16.sp)
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text(if (isPrinting) "印刷中…" else "印刷", color = Primary, fontSize = 16.sp)
                 }
                 OutlinedButton(
@@ -413,8 +441,6 @@ private fun LabelPrintBottomBar(
                     shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, Secondary),
                 ) {
-                    Text("🏠", color = Secondary, fontSize = 16.sp)
-                    Spacer(modifier = Modifier.width(8.dp))
                     Text("完了 — ホームに戻る", color = Secondary, fontSize = 16.sp)
                 }
             }

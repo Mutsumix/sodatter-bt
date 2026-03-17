@@ -15,4 +15,6 @@ class GrowthPhotoRepository @Inject constructor(
 
     suspend fun insert(photo: GrowthPhotoEntity): Long =
         growthPhotoDao.insert(photo)
+
+    suspend fun delete(id: Long) = growthPhotoDao.deleteById(id)
 }

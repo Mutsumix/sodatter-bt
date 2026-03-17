@@ -1,6 +1,8 @@
 package com.mutsumix.sodatterbt.ui.detail
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,7 +47,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogProperties
+import coil.compose.AsyncImage
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.mutsumix.sodatterbt.data.db.entity.CultivationEntity
@@ -68,13 +75,18 @@ private val monthDayFormat = SimpleDateFormat("MM/dd", Locale.JAPAN)
 @Composable
 fun DetailScreen(
     deviceId: Int,
+    promptCamera: Boolean = false,
     onBack: () -> Unit,
     onHarvestClick: () -> Unit,
+    onPhotoClick: () -> Unit = {},
     onDeleted: () -> Unit = onBack,
     viewModel: DetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeleteConfirm by remember { mutableStateOf(false) }
+    var showCameraPrompt by remember { mutableStateOf(promptCamera) }
+    var expandedPhoto by remember { mutableStateOf<GrowthPhotoEntity?>(null) }
+    var showPhotoDeleteConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.isDeleted) {
         if (uiState.isDeleted) onDeleted()
@@ -140,7 +152,48 @@ fun DetailScreen(
         ) {
             if (cultivation != null && device != null) {
                 InfoCard(device = device, cultivation = cultivation)
-                GrowthLogSection(photos = uiState.growthPhotos)
+                GrowthLogSection(
+                    photos = uiState.growthPhotos,
+                    onPhotoClick = onPhotoClick,
+                    onThumbnailClick = { photo -> expandedPhoto = photo },
+                )
+            }
+        }
+    }
+
+    // QRスキャン経由のカメラ撮影確認ダイアログ
+    if (showCameraPrompt && cultivation != null) {
+        Dialog(onDismissRequest = { showCameraPrompt = false }) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White,
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text("写真を撮影しますか？", color = OnBackground, fontSize = 16.sp)
+                    Text(
+                        "「${cultivation.varietyName}」の生育記録として写真を追加します。",
+                        color = Muted,
+                        fontSize = 14.sp,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = { showCameraPrompt = false }) {
+                            Text("あとで", color = Muted)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = {
+                            showCameraPrompt = false
+                            onPhotoClick()
+                        }) {
+                            Text("撮影する", color = Primary)
+                        }
+                    }
+                }
             }
         }
     }
@@ -172,6 +225,82 @@ fun DetailScreen(
                         TextButton(onClick = {
                             showDeleteConfirm = false
                             viewModel.deleteCultivation()
+                        }) {
+                            Text("削除", color = Color(0xFFEC0000))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 写真拡大表示
+    if (expandedPhoto != null) {
+        Dialog(
+            onDismissRequest = { expandedPhoto = null },
+            properties = DialogProperties(usePlatformDefaultWidth = false),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+                    .clickable { expandedPhoto = null },
+            ) {
+                AsyncImage(
+                    model = expandedPhoto!!.photoUri,
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
+                IconButton(
+                    onClick = { showPhotoDeleteConfirm = true },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = "削除",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp),
+                    )
+                }
+                Text(
+                    text = dateFormat.format(Date(expandedPhoto!!.takenAt)),
+                    color = Color.White.copy(alpha = 0.7f),
+                    fontSize = 14.sp,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 32.dp),
+                )
+            }
+        }
+    }
+
+    // 写真削除確認
+    if (showPhotoDeleteConfirm && expandedPhoto != null) {
+        Dialog(onDismissRequest = { showPhotoDeleteConfirm = false }) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White,
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text("この写真を削除しますか？", color = OnBackground, fontSize = 16.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = { showPhotoDeleteConfirm = false }) {
+                            Text("キャンセル", color = Muted)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = {
+                            viewModel.deletePhoto(expandedPhoto!!.id)
+                            showPhotoDeleteConfirm = false
+                            expandedPhoto = null
                         }) {
                             Text("削除", color = Color(0xFFEC0000))
                         }
@@ -251,9 +380,27 @@ private fun InfoCard(device: DeviceEntity, cultivation: CultivationEntity) {
 }
 
 @Composable
-private fun GrowthLogSection(photos: List<GrowthPhotoEntity>) {
+private fun GrowthLogSection(
+    photos: List<GrowthPhotoEntity>,
+    onPhotoClick: () -> Unit = {},
+    onThumbnailClick: (GrowthPhotoEntity) -> Unit = {},
+) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("生育ログ", color = OnBackground, fontSize = 16.sp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("生育ログ", color = OnBackground, fontSize = 16.sp)
+            IconButton(onClick = onPhotoClick, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    imageVector = Icons.Filled.CameraAlt,
+                    contentDescription = "写真を撮る",
+                    tint = Primary,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
         if (photos.isEmpty()) {
             Surface(
                 shape = RoundedCornerShape(8.dp),
@@ -265,7 +412,7 @@ private fun GrowthLogSection(photos: List<GrowthPhotoEntity>) {
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "まだ写真がありません。\nデバイスタグのQRをスキャンして追加してください。",
+                        text = "まだ写真がありません。\nカメラボタンから撮影してください。",
                         color = Muted,
                         fontSize = 14.sp,
                     )
@@ -277,7 +424,11 @@ private fun GrowthLogSection(photos: List<GrowthPhotoEntity>) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 photos.forEach { photo ->
-                    GrowthLogThumbnail(takenAt = photo.takenAt)
+                    GrowthLogThumbnail(
+                        photoUri = photo.photoUri,
+                        takenAt = photo.takenAt,
+                        onClick = { onThumbnailClick(photo) },
+                    )
                 }
             }
         }
@@ -285,21 +436,20 @@ private fun GrowthLogSection(photos: List<GrowthPhotoEntity>) {
 }
 
 @Composable
-private fun GrowthLogThumbnail(takenAt: Long) {
+private fun GrowthLogThumbnail(photoUri: String, takenAt: Long, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = Surface2,
-            border = BorderStroke(1.dp, Divider),
-            modifier = Modifier.size(64.dp),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text("🌱", fontSize = 20.sp)
-            }
-        }
+        AsyncImage(
+            model = photoUri,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .size(64.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .clickable(onClick = onClick),
+        )
         Text(monthDayFormat.format(Date(takenAt)), color = Muted, fontSize = 10.sp)
     }
 }

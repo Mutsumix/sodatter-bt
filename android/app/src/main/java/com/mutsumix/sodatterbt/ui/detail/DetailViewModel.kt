@@ -66,6 +66,12 @@ class DetailViewModel @Inject constructor(
         }
     }
 
+    fun deletePhoto(photoId: Long) {
+        viewModelScope.launch {
+            growthPhotoRepository.delete(photoId)
+        }
+    }
+
     fun deleteCultivation() {
         val cultivationId = _uiState.value.cultivation?.id ?: return
         viewModelScope.launch {

@@ -14,4 +14,7 @@ interface GrowthPhotoDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(photo: GrowthPhotoEntity): Long
+
+    @Query("DELETE FROM growth_photos WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }

@@ -6,6 +6,8 @@ import com.mutsumix.sodatterbt.data.db.entity.DeviceEntity
 import com.mutsumix.sodatterbt.data.repository.DeviceRepository
 import com.mutsumix.sodatterbt.data.repository.DeviceSettingRepository
 import com.mutsumix.sodatterbt.data.repository.SettingKey
+import com.mutsumix.sodatterbt.device.epaper.EpaperApiClient
+import com.mutsumix.sodatterbt.device.epaper.EpaperTag
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,12 +21,16 @@ data class SettingsUiState(
     val scaleIdentifier: String = "",
     val printerIdentifier: String = "",
     val esp32Ip: String = "",
+    val availableTags: List<EpaperTag> = emptyList(),
+    val isFetchingTags: Boolean = false,
+    val tagFetchError: String? = null,
 )
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val deviceRepository: DeviceRepository,
     private val settingRepository: DeviceSettingRepository,
+    private val epaperApiClient: EpaperApiClient,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -62,5 +68,22 @@ class SettingsViewModel @Inject constructor(
 
     fun updateTagMac(deviceId: Int, macAddress: String?) {
         viewModelScope.launch { deviceRepository.updateTagMac(deviceId, macAddress) }
+    }
+
+    fun fetchAvailableTags() {
+        val ip = _uiState.value.esp32Ip
+        if (ip.isBlank()) {
+            _uiState.value = _uiState.value.copy(tagFetchError = "ESP32 IPアドレスが未設定です")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isFetchingTags = true, tagFetchError = null)
+            val tags = epaperApiClient.fetchTags(ip)
+            _uiState.value = _uiState.value.copy(
+                availableTags = tags,
+                isFetchingTags = false,
+                tagFetchError = if (tags.isEmpty()) "タグが見つかりませんでした" else null,
+            )
+        }
     }
 }

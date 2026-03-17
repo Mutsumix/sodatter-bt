@@ -8,6 +8,7 @@ import com.mutsumix.sodatterbt.data.repository.DeviceRepository
 import com.mutsumix.sodatterbt.data.repository.DeviceSettingRepository
 import com.mutsumix.sodatterbt.data.repository.SettingKey
 import com.mutsumix.sodatterbt.device.epaper.EpaperApiClient
+import com.mutsumix.sodatterbt.device.epaper.EpaperResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,6 +32,7 @@ data class SeedingUiState(
     val isSaved: Boolean = false,
     val savedDeviceName: String = "",
     val isTagUpdating: Boolean = false,
+    val tagUpdateMessage: String? = null,
 )
 
 @HiltViewModel
@@ -76,6 +78,20 @@ class SeedingViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(seedingDateMillis = millis)
     }
 
+    fun clearTagUpdateMessage() {
+        _uiState.value = _uiState.value.copy(tagUpdateMessage = null)
+    }
+
+    /**
+     * 選択中デバイスにタグ連携が設定されているか判定する
+     */
+    suspend fun hasTagLink(): Boolean {
+        val deviceId = _uiState.value.selectedDeviceId ?: return false
+        val device = deviceRepository.getById(deviceId) ?: return false
+        val esp32Ip = settingRepository.get(SettingKey.ESP32_IP)
+        return !esp32Ip.isNullOrBlank() && !device.tagMacAddress.isNullOrBlank()
+    }
+
     fun register() {
         val state = _uiState.value
         var hasError = false
@@ -110,15 +126,20 @@ class SeedingViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(isTagUpdating = true)
                 val dateStr = SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN)
                     .format(Date(state.seedingDateMillis))
-                epaperApiClient.updateTag(
+                val result = epaperApiClient.updateTag(
                     apIpAddress = esp32Ip,
                     tagMacAddress = tagMac,
                     cultivationId = cultivationId,
                     cropName = state.variety,
+                    manufacturer = state.manufacturer,
                     seedingDate = dateStr,
                     deviceName = device.name,
                 )
-                _uiState.value = _uiState.value.copy(isTagUpdating = false)
+                val message = when (result) {
+                    is EpaperResult.Success -> "電子ペーパータグを更新しました"
+                    is EpaperResult.Failure -> "タグ更新に失敗: ${result.message}"
+                }
+                _uiState.value = _uiState.value.copy(isTagUpdating = false, tagUpdateMessage = message)
             }
         }
     }

@@ -1,6 +1,7 @@
 package com.mutsumix.sodatterbt.ui.settings
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -66,6 +68,8 @@ fun SettingsScreen(
     var editingValue by remember { mutableStateOf("") }
     var editingLabel by remember { mutableStateOf("") }
     var editingDeviceId by remember { mutableStateOf<Int?>(null) }
+    // タグ選択ダイアログ
+    var tagPickerDeviceId by remember { mutableStateOf<Int?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -79,11 +83,9 @@ fun SettingsScreen(
                 SettingsSection(title = "デバイス") {
                     DevicesSection(
                         devices = uiState.devices,
-                        onTagEdit = { deviceId, currentMac ->
-                            editingDeviceId = deviceId
-                            editingValue = currentMac ?: ""
-                            editingLabel = "タグMACアドレス"
-                            editingKey = "tag_mac_$deviceId"
+                        onTagEdit = { deviceId, _ ->
+                            tagPickerDeviceId = deviceId
+                            viewModel.fetchAvailableTags()
                         },
                     )
                 }
@@ -209,6 +211,102 @@ fun SettingsScreen(
                 color = Color.White,
             ) {
                 LicensesScreen(onBack = { licensesOpen = false })
+            }
+        }
+    }
+
+    // タグ選択ダイアログ
+    if (tagPickerDeviceId != null) {
+        Dialog(onDismissRequest = { tagPickerDeviceId = null }) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White,
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text("タグを選択", color = OnBackground, fontSize = 16.sp)
+
+                    when {
+                        uiState.isFetchingTags -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 24.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(32.dp), color = Primary)
+                            }
+                        }
+                        uiState.tagFetchError != null -> {
+                            Text(uiState.tagFetchError!!, color = Color(0xFFEC0000), fontSize = 14.sp)
+                        }
+                        else -> {
+                            // 既に他デバイスに割り当て済みのMACを除外
+                            val assignedMacs = uiState.devices
+                                .filter { it.id != tagPickerDeviceId }
+                                .mapNotNull { it.tagMacAddress }
+                                .toSet()
+                            val selectableTags = uiState.availableTags.filter { it.mac !in assignedMacs }
+
+                            if (selectableTags.isEmpty()) {
+                                Text("選択可能なタグがありません", color = Muted, fontSize = 14.sp)
+                            } else {
+                                selectableTags.forEach { tag ->
+                                    val displayName = tag.alias.ifBlank { tag.mac }
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = BorderStroke(1.dp, Divider),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                viewModel.updateTagMac(tagPickerDeviceId!!, tag.mac)
+                                                tagPickerDeviceId = null
+                                            },
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(12.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(displayName, color = OnBackground, fontSize = 14.sp)
+                                                if (tag.alias.isNotBlank()) {
+                                                    Text(
+                                                        tag.mac,
+                                                        color = Muted,
+                                                        fontSize = 11.sp,
+                                                        fontFamily = FontFamily.Monospace,
+                                                    )
+                                                }
+                                            }
+                                            Text(
+                                                "${tag.rssi}dBm",
+                                                color = Muted,
+                                                fontSize = 11.sp,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        TextButton(onClick = {
+                            viewModel.updateTagMac(tagPickerDeviceId!!, null)
+                            tagPickerDeviceId = null
+                        }) {
+                            Text("割り当て解除", color = Color(0xFFEC0000), fontSize = 14.sp)
+                        }
+                        TextButton(onClick = { tagPickerDeviceId = null }) {
+                            Text("キャンセル", color = Muted)
+                        }
+                    }
+                }
             }
         }
     }

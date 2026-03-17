@@ -5,6 +5,9 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
 import java.io.ByteArrayOutputStream
 
 /**
@@ -13,9 +16,7 @@ import java.io.ByteArrayOutputStream
  * 表示内容:
  * - 播種日
  * - 品種名
- * - QRコード領域 (QRコードはSodatterBTの`sodatterbt://cultivation/{id}`スキーム)
- *   → 実際のQRビットマップはzxing等のライブラリで生成するが、
- *     本実装では依存追加を避けてプレースホルダーBoxを描画する
+ * - QRコード (sodatterbt://cultivation/{id})
  */
 object TagImageGenerator {
 
@@ -25,6 +26,7 @@ object TagImageGenerator {
     fun generate(
         cultivationId: Long,
         cropName: String,
+        manufacturer: String,
         seedingDate: String,
         deviceName: String,
     ): ByteArray {
@@ -40,23 +42,31 @@ object TagImageGenerator {
 
         // 左カラム: テキスト情報
         val leftPad = 12f
-        val topPad = 16f
+        val topPad = 10f
 
-        // 装置名バッジ
-        paintBlack.textSize = 11f
+        // 装置名
+        paintBlack.textSize = 20f
         paintBlack.typeface = Typeface.DEFAULT
-        canvas.drawText("Device $deviceName", leftPad, topPad + 11f, paintBlack)
+        canvas.drawText("Device $deviceName", leftPad, topPad + 18f, paintBlack)
 
         // 品種名 (大きめ)
         paintBlack.textSize = 22f
         paintBlack.typeface = Typeface.DEFAULT_BOLD
         val cropDisplayName = if (cropName.length > 8) cropName.substring(0, 8) + "…" else cropName
-        canvas.drawText(cropDisplayName, leftPad, topPad + 44f, paintBlack)
+        canvas.drawText(cropDisplayName, leftPad, topPad + 46f, paintBlack)
+
+        // 種苗メーカー
+        paintBlack.textSize = 14f
+        paintBlack.typeface = Typeface.DEFAULT
+        if (manufacturer.isNotBlank()) {
+            val mfgDisplay = if (manufacturer.length > 12) manufacturer.substring(0, 12) + "…" else manufacturer
+            canvas.drawText(mfgDisplay, leftPad, topPad + 64f, paintBlack)
+        }
 
         // 播種日
-        paintBlack.textSize = 12f
+        paintBlack.textSize = 20f
         paintBlack.typeface = Typeface.DEFAULT
-        canvas.drawText("播種 $seedingDate", leftPad, topPad + 66f, paintBlack)
+        canvas.drawText("播種日 $seedingDate", leftPad, topPad + 90f, paintBlack)
 
         // アプリ名ウォーターマーク
         paintBlack.textSize = 9f
@@ -64,31 +74,41 @@ object TagImageGenerator {
         canvas.drawText("Sodatter-BT", leftPad, HEIGHT - 8f, paintBlack)
         paintBlack.alpha = 255
 
-        // 右カラム: QRコードプレースホルダー
-        // (実際の実装ではzxing-androidで生成したBitmapを描画する)
-        val qrSize = 90f
-        val qrLeft = WIDTH - qrSize - 12f
-        val qrTop = (HEIGHT - qrSize) / 2f
-        val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.BLACK
-            style = Paint.Style.STROKE
-            strokeWidth = 2f
-        }
-        canvas.drawRect(qrLeft, qrTop, qrLeft + qrSize, qrTop + qrSize, borderPaint)
-        paintBlack.textSize = 8f
-        canvas.drawText("QR", qrLeft + qrSize / 2f - 7f, qrTop + qrSize / 2f + 3f, paintBlack)
+        // 右カラム: QRコード (ZXing)
+        val qrSizeInt = 90
+        val qrLeft = WIDTH - qrSizeInt - 12
+        val qrTop = (HEIGHT - qrSizeInt) / 2
+        val qrContent = "sodatterbt://cultivation/$cultivationId"
+        val qrBitmap = generateQrBitmap(qrContent, qrSizeInt)
+        canvas.drawBitmap(qrBitmap, qrLeft.toFloat(), qrTop.toFloat(), null)
+        qrBitmap.recycle()
 
         // 区切り線
         val dividerPaint = Paint().apply {
             color = Color.LTGRAY
             strokeWidth = 1f
         }
-        canvas.drawLine(WIDTH - qrSize - 24f, 12f, WIDTH - qrSize - 24f, HEIGHT - 12f, dividerPaint)
+        canvas.drawLine(WIDTH - qrSizeInt - 24f, 12f, WIDTH - qrSizeInt - 24f, HEIGHT - 12f, dividerPaint)
 
         // JPEG出力
         val out = ByteArrayOutputStream()
         bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
         bitmap.recycle()
         return out.toByteArray()
+    }
+
+    private fun generateQrBitmap(content: String, size: Int): Bitmap {
+        val hints = mapOf(
+            EncodeHintType.MARGIN to 1,
+            EncodeHintType.CHARACTER_SET to "UTF-8",
+        )
+        val matrix = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size, hints)
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
+        for (x in 0 until size) {
+            for (y in 0 until size) {
+                bitmap.setPixel(x, y, if (matrix.get(x, y)) Color.BLACK else Color.WHITE)
+            }
+        }
+        return bitmap
     }
 }

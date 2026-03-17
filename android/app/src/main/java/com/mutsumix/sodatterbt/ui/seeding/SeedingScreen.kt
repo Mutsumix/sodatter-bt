@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,12 +31,19 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,6 +70,8 @@ fun SeedingScreen(
     viewModel: SeedingViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    var showNoTagConfirm by remember { mutableStateOf(false) }
 
     // deviceIdが有効な場合は初期選択
     LaunchedEffect(deviceId, uiState.deviceOptions) {
@@ -71,17 +81,110 @@ fun SeedingScreen(
         }
     }
 
-    // 保存完了時にコールバック
-    LaunchedEffect(uiState.isSaved) {
-        if (uiState.isSaved) onSaved()
+    // 保存完了ダイアログ（ユーザーがOKを押すまで遷移しない）
+
+    // 電子タグ連携なし確認ダイアログ
+    if (showNoTagConfirm) {
+        Dialog(onDismissRequest = { showNoTagConfirm = false }) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White,
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text("電子タグとの連携なしで登録しますか？", color = OnBackground, fontSize = 16.sp)
+                    Text(
+                        "ESP32 IPアドレスまたはタグMACアドレスが未設定のため、電子ペーパータグは更新されません。",
+                        color = Muted,
+                        fontSize = 14.sp,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = { showNoTagConfirm = false }) {
+                            Text("キャンセル", color = Muted)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = {
+                            showNoTagConfirm = false
+                            viewModel.register()
+                        }) {
+                            Text("登録する", color = Primary)
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    if (uiState.isSaved) {
-        SeedingSuccessScreen(
-            deviceName = uiState.savedDeviceName,
-            onBack = onBack,
-        )
-        return
+    if (uiState.isSaved && !uiState.isTagUpdating) {
+        val tagMsg = uiState.tagUpdateMessage
+        val isTagError = tagMsg != null && tagMsg.contains("失敗")
+        Dialog(onDismissRequest = { }) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White,
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        border = BorderStroke(1.dp, if (isTagError) Error else Secondary),
+                        modifier = Modifier.size(56.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(if (isTagError) "!" else "✓", color = if (isTagError) Error else Secondary, fontSize = 24.sp)
+                        }
+                    }
+                    Text("登録が完了しました", color = OnBackground, fontSize = 16.sp)
+                    Text(
+                        "デバイス ${uiState.savedDeviceName} に播種情報を登録しました",
+                        color = Muted,
+                        fontSize = 14.sp,
+                    )
+                    if (tagMsg != null) {
+                        Text(
+                            tagMsg,
+                            color = if (isTagError) Error else Secondary,
+                            fontSize = 13.sp,
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.clearTagUpdateMessage()
+                            onSaved()
+                        },
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Primary),
+                    ) {
+                        Text("OK", color = Primary, fontSize = 16.sp)
+                    }
+                }
+            }
+        }
+    } else if (uiState.isSaved && uiState.isTagUpdating) {
+        Dialog(onDismissRequest = { }) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White,
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text("電子ペーパータグ更新中…", color = Muted, fontSize = 14.sp)
+                }
+            }
+        }
     }
 
     Scaffold(
@@ -103,7 +206,15 @@ fun SeedingScreen(
             )
         },
         bottomBar = {
-            SeedingBottomBar(onRegister = { viewModel.register() })
+            SeedingBottomBar(onRegister = {
+                scope.launch {
+                    if (viewModel.hasTagLink()) {
+                        viewModel.register()
+                    } else {
+                        showNoTagConfirm = true
+                    }
+                }
+            })
         },
         containerColor = Color.White,
     ) { innerPadding ->
@@ -132,53 +243,6 @@ fun SeedingScreen(
             )
             SeedingDateSection(millis = uiState.seedingDateMillis)
             SeedPhotoSection()
-        }
-    }
-}
-
-@Composable
-private fun SeedingSuccessScreen(
-    deviceName: String,
-    onBack: () -> Unit,
-) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-            modifier = Modifier.padding(horizontal = 32.dp),
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = Color.White,
-                border = BorderStroke(1.dp, Secondary),
-                modifier = Modifier.size(64.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text("✓", color = Secondary, fontSize = 28.sp)
-                }
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("登録が完了しました", color = OnBackground, fontSize = 18.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "デバイス $deviceName に播種情報を登録しました",
-                    color = Muted,
-                    fontSize = 14.sp,
-                )
-            }
-            OutlinedButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, Primary),
-            ) {
-                Text("ホームに戻る", color = Primary, fontSize = 16.sp)
-            }
         }
     }
 }

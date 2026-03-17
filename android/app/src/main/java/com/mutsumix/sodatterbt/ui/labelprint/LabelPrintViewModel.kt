@@ -8,8 +8,6 @@ import com.mutsumix.sodatterbt.data.db.entity.CultivationEntity
 import com.mutsumix.sodatterbt.data.db.entity.DeviceEntity
 import com.mutsumix.sodatterbt.data.repository.CultivationRepository
 import com.mutsumix.sodatterbt.data.repository.DeviceRepository
-import com.mutsumix.sodatterbt.data.repository.DeviceSettingRepository
-import com.mutsumix.sodatterbt.data.repository.SettingKey
 import com.mutsumix.sodatterbt.device.printer.LabelData
 import com.mutsumix.sodatterbt.device.printer.PrinterState
 import com.mutsumix.sodatterbt.device.printer.StarPrinterManager
@@ -41,7 +39,6 @@ class LabelPrintViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val deviceRepository: DeviceRepository,
     private val cultivationRepository: CultivationRepository,
-    private val settingRepository: DeviceSettingRepository,
     private val printerManager: StarPrinterManager,
 ) : ViewModel() {
 
@@ -56,7 +53,6 @@ class LabelPrintViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val device = deviceRepository.getById(deviceId)
-            printerIdentifier = settingRepository.get(SettingKey.PRINTER_IDENTIFIER)
             // アクティブ栽培優先、なければ収穫済みにフォールバック
             combine(
                 cultivationRepository.getActiveCultivationByDevice(deviceId),
@@ -103,13 +99,7 @@ class LabelPrintViewModel @Inject constructor(
     }
 
     fun connectPrinter() {
-        val identifier = printerIdentifier
-        if (identifier.isNullOrBlank()) {
-            printerManager.discover()
-        } else {
-            // 保存済みIDがあればDiscovery省略
-            _uiState.value = _uiState.value.copy(printerConnected = true)
-        }
+        printerManager.discover()
     }
 
     fun print() {

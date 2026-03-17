@@ -68,6 +68,7 @@ fun SettingsScreen(
     var editingValue by remember { mutableStateOf("") }
     var editingLabel by remember { mutableStateOf("") }
     var editingDeviceId by remember { mutableStateOf<Int?>(null) }
+    var editingError by remember { mutableStateOf<String?>(null) }
     // タグ選択ダイアログ
     var tagPickerDeviceId by remember { mutableStateOf<Int?>(null) }
 
@@ -91,23 +92,9 @@ fun SettingsScreen(
                 }
             }
             item {
-                SettingsSection(title = "周辺機器") {
-                    PeripheralsSection(
-                        scaleIdentifier = uiState.scaleIdentifier,
-                        printerIdentifier = uiState.printerIdentifier,
+                SettingsSection(title = "電子ペーパー") {
+                    Esp32Section(
                         esp32Ip = uiState.esp32Ip,
-                        onEditScale = {
-                            editingDeviceId = null
-                            editingKey = "scale_identifier"
-                            editingValue = uiState.scaleIdentifier
-                            editingLabel = "Decent Scale BLEアドレス"
-                        },
-                        onEditPrinter = {
-                            editingDeviceId = null
-                            editingKey = "printer_identifier"
-                            editingValue = uiState.printerIdentifier
-                            editingLabel = "プリンターMACアドレス"
-                        },
                         onEditEsp32 = {
                             editingDeviceId = null
                             editingKey = "esp32_ip"
@@ -167,8 +154,10 @@ fun SettingsScreen(
                     Text(editingLabel, color = OnBackground, fontSize = 16.sp)
                     OutlinedTextField(
                         value = editingValue,
-                        onValueChange = { editingValue = it },
+                        onValueChange = { editingValue = it; editingError = null },
                         singleLine = true,
+                        isError = editingError != null,
+                        supportingText = editingError?.let { { Text(it) } },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Row(
@@ -183,15 +172,18 @@ fun SettingsScreen(
                         TextButton(onClick = {
                             val devId = editingDeviceId
                             when {
-                                devId != null -> viewModel.updateTagMac(
-                                    devId,
-                                    editingValue.ifBlank { null },
-                                )
-                                editingKey == "scale_identifier" -> viewModel.saveScaleIdentifier(editingValue)
-                                editingKey == "printer_identifier" -> viewModel.savePrinterIdentifier(editingValue)
-                                editingKey == "esp32_ip" -> viewModel.saveEsp32Ip(editingValue)
+                                devId != null -> {
+                                    viewModel.updateTagMac(devId, editingValue.ifBlank { null })
+                                    editingKey = null
+                                }
+                                editingKey == "esp32_ip" -> {
+                                    if (viewModel.saveEsp32Ip(editingValue)) {
+                                        editingKey = null
+                                    } else {
+                                        editingError = "IPアドレスの形式が正しくありません（例: 192.168.1.99）"
+                                    }
+                                }
                             }
-                            editingKey = null
                         }) {
                             Text("保存", color = Primary)
                         }
@@ -383,12 +375,8 @@ private fun DeviceRow(device: DeviceEntity, onEdit: () -> Unit) {
 }
 
 @Composable
-private fun PeripheralsSection(
-    scaleIdentifier: String,
-    printerIdentifier: String,
+private fun Esp32Section(
     esp32Ip: String,
-    onEditScale: () -> Unit,
-    onEditPrinter: () -> Unit,
     onEditEsp32: () -> Unit,
 ) {
     Surface(
@@ -397,31 +385,13 @@ private fun PeripheralsSection(
         border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Column {
-            SettingRow(
-                icon = "⚖",
-                label = "Decent Scale",
-                value = scaleIdentifier.ifBlank { "未設定" },
-                connected = scaleIdentifier.isNotBlank(),
-                onEdit = onEditScale,
-            )
-            HorizontalDivider(color = Color(0xFFF0F0F0), modifier = Modifier.padding(horizontal = 16.dp))
-            SettingRow(
-                icon = "🖨",
-                label = "Star SM-S210i",
-                value = printerIdentifier.ifBlank { "未設定" },
-                connected = printerIdentifier.isNotBlank(),
-                onEdit = onEditPrinter,
-            )
-            HorizontalDivider(color = Color(0xFFF0F0F0), modifier = Modifier.padding(horizontal = 16.dp))
-            SettingRow(
-                icon = "📶",
-                label = "ESP32 アクセスポイント",
-                value = esp32Ip.ifBlank { "未設定" },
-                connected = esp32Ip.isNotBlank(),
-                onEdit = onEditEsp32,
-            )
-        }
+        SettingRow(
+            icon = "📶",
+            label = "ESP32 アクセスポイント",
+            value = esp32Ip.ifBlank { "未設定" },
+            connected = esp32Ip.isNotBlank(),
+            onEdit = onEditEsp32,
+        )
     }
 }
 

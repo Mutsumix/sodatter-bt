@@ -8,8 +8,6 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 object SettingKey {
-    const val SCALE_IDENTIFIER = "scale_identifier"
-    const val PRINTER_IDENTIFIER = "printer_identifier"
     const val ESP32_IP = "esp32_ip"
 }
 

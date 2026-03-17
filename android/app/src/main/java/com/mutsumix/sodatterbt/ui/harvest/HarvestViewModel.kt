@@ -8,8 +8,6 @@ import com.mutsumix.sodatterbt.data.db.entity.CultivationEntity
 import com.mutsumix.sodatterbt.data.db.entity.DeviceEntity
 import com.mutsumix.sodatterbt.data.repository.CultivationRepository
 import com.mutsumix.sodatterbt.data.repository.DeviceRepository
-import com.mutsumix.sodatterbt.data.repository.DeviceSettingRepository
-import com.mutsumix.sodatterbt.data.repository.SettingKey
 import com.mutsumix.sodatterbt.device.scale.DecentScaleManager
 import com.mutsumix.sodatterbt.device.scale.ScaleState
 import com.mutsumix.sodatterbt.navigation.Harvest
@@ -36,7 +34,6 @@ class HarvestViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val deviceRepository: DeviceRepository,
     private val cultivationRepository: CultivationRepository,
-    private val settingRepository: DeviceSettingRepository,
     private val scaleManager: DecentScaleManager,
 ) : ViewModel() {
 
@@ -81,8 +78,7 @@ class HarvestViewModel @Inject constructor(
 
     fun connectScale() {
         viewModelScope.launch {
-            val identifier = settingRepository.get(SettingKey.SCALE_IDENTIFIER)
-            scaleManager.startScan(identifier)
+            scaleManager.startScan(null)
         }
     }
 

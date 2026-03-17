@@ -18,8 +18,6 @@ import javax.inject.Inject
 
 data class SettingsUiState(
     val devices: List<DeviceEntity> = emptyList(),
-    val scaleIdentifier: String = "",
-    val printerIdentifier: String = "",
     val esp32Ip: String = "",
     val availableTags: List<EpaperTag> = emptyList(),
     val isFetchingTags: Boolean = false,
@@ -40,30 +38,23 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 deviceRepository.getAllDevicesWithCultivation(),
-                settingRepository.observe(SettingKey.SCALE_IDENTIFIER),
-                settingRepository.observe(SettingKey.PRINTER_IDENTIFIER),
                 settingRepository.observe(SettingKey.ESP32_IP),
-            ) { devicesWithCultivation, scale, printer, esp32 ->
+            ) { devicesWithCultivation, esp32 ->
                 SettingsUiState(
                     devices = devicesWithCultivation.map { it.device },
-                    scaleIdentifier = scale ?: "",
-                    printerIdentifier = printer ?: "",
                     esp32Ip = esp32 ?: "",
                 )
             }.collect { _uiState.value = it }
         }
     }
 
-    fun saveScaleIdentifier(value: String) {
-        viewModelScope.launch { settingRepository.set(SettingKey.SCALE_IDENTIFIER, value) }
-    }
-
-    fun savePrinterIdentifier(value: String) {
-        viewModelScope.launch { settingRepository.set(SettingKey.PRINTER_IDENTIFIER, value) }
-    }
-
-    fun saveEsp32Ip(value: String) {
-        viewModelScope.launch { settingRepository.set(SettingKey.ESP32_IP, value) }
+    fun saveEsp32Ip(value: String): Boolean {
+        val trimmed = value.trim()
+        if (trimmed.isNotBlank() && !trimmed.matches(Regex("""\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"""))) {
+            return false
+        }
+        viewModelScope.launch { settingRepository.set(SettingKey.ESP32_IP, trimmed) }
+        return true
     }
 
     fun updateTagMac(deviceId: Int, macAddress: String?) {

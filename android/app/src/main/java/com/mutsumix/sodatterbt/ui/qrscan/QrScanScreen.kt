@@ -61,6 +61,7 @@ fun QrScanScreen(
     viewModel: QrScanViewModel = hiltViewModel(),
 ) {
     val scope = rememberCoroutineScope()
+    var notFound by remember { mutableStateOf(false) }
 
     if (cultivationId >= 0L) {
         // ディープリンク経由: cultivationIdからdeviceIdを解決して遷移
@@ -69,17 +70,26 @@ fun QrScanScreen(
             if (deviceId != null) {
                 onNavigateToPhotoRecord(deviceId)
             } else {
-                onBack()
+                notFound = true
             }
         }
-        // 解決中は黒画面
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black),
             contentAlignment = Alignment.Center,
         ) {
-            Text("読み込み中…", color = Color.White, fontSize = 16.sp)
+            if (notFound) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("栽培記録が見つかりませんでした", color = Color.White, fontSize = 16.sp)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    TextButton(onClick = onBack) {
+                        Text("戻る", color = Primary, fontSize = 16.sp)
+                    }
+                }
+            } else {
+                Text("読み込み中…", color = Color.White, fontSize = 16.sp)
+            }
         }
     } else {
         // カメラでQR手動スキャン

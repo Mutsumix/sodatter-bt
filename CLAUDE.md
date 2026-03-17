@@ -37,6 +37,18 @@
   - バグ修正1件ごと
 - 複数画面や複数機能をまとめて1コミットにしないこと
 
+## 実装ルール
+
+- 1つの機能を実装したら、必ず実機テスト可能な状態まで持っていく
+- テストに実機やデバイスが必要な場合、コードを書く前にユーザーにデバイスの準備状況を確認する
+- 「ビルドが通った」はテスト完了ではない。実際に動作確認するまで次の機能に進まない
+- テストできない環境の場合は、その旨をユーザーに伝えて判断を仰ぐ
+- 外部デバイスとの通信（HTTP API、BLE等）は、コードを書く前にcurl等で実際にコマンドを実行して動作確認すること。推測でコードを書いて余計な手戻りを発生させない
+
 ## ミスの記録
 
-（開発中に発生したミスをここに追記していく）
+- テストをスキップして複数機能を一気に実装し、問題を積み重ねた
+- BLEランタイム権限チェック漏れ（BLUETOOTH_SCAN/CONNECT）でクラッシュ
+- LabelPrintViewModelがgetHarvestedCultivationsのみ参照し、未収穫時にcultivation=nullでサイレントリターン
+- StarXpand SDKのCJKクラス名が大文字小文字違い（CJKCharacterType → CjkCharacterType）
+- SM-S210iの日本語印刷はstyleSecondPriorityCharacterEncoding(CharacterEncodingType.Japanese)が正解

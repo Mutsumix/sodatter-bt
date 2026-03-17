@@ -93,23 +93,17 @@ fun HarvestScreen(
         }
     }
 
-    // 収穫完了後にナビゲーション
-    LaunchedEffect(uiState.isCompleted) {
-        if (uiState.isCompleted) onComplete()
-    }
-
     val cultivation = uiState.cultivation
     val device = uiState.device
 
+    // 収穫完了ダイアログ（OKを押すまで遷移しない）
     if (uiState.isCompleted) {
-        HarvestCompleteScreen(
+        HarvestCompleteDialog(
             deviceName = device?.name ?: "",
             cropName = cultivation?.varietyName ?: "",
             weightGram = uiState.weightGram,
-            harvestDate = System.currentTimeMillis(),
-            onGoHome = onComplete,
+            onOk = onComplete,
         )
-        return
     }
 
     Scaffold(
@@ -168,56 +162,57 @@ fun HarvestScreen(
 }
 
 @Composable
-private fun HarvestCompleteScreen(
+private fun HarvestCompleteDialog(
     deviceName: String,
     cropName: String,
     weightGram: Float,
-    harvestDate: Long,
-    onGoHome: () -> Unit,
+    onOk: () -> Unit,
 ) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-            modifier = Modifier.padding(horizontal = 32.dp),
+    androidx.compose.ui.window.Dialog(onDismissRequest = { }) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color.White,
         ) {
-            Surface(
-                shape = CircleShape,
-                color = Color.White,
-                border = BorderStroke(1.dp, Secondary),
-                modifier = Modifier.size(64.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text("✂", color = Secondary, fontSize = 28.sp)
-                }
-            }
             Column(
+                modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Text("収穫が完了しました", color = OnBackground, fontSize = 18.sp)
-                Text("デバイス $deviceName（$cropName）", color = Muted, fontSize = 14.sp)
-                if (weightGram > 0f) {
-                    Text("収穫量：${weightGram}g", color = Muted, fontSize = 14.sp)
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Secondary),
+                    modifier = Modifier.size(56.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text("✂", color = Secondary, fontSize = 24.sp)
+                    }
                 }
-                Text(
-                    "収穫日：${dateFormat.format(Date(harvestDate))}",
-                    color = Muted,
-                    fontSize = 14.sp,
-                )
-            }
-            OutlinedButton(
-                onClick = onGoHome,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                shape = RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, Primary),
-            ) {
-                Text("ホームに戻る", color = Primary, fontSize = 16.sp)
+                Text("収穫が完了しました", color = OnBackground, fontSize = 16.sp)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text("デバイス $deviceName（$cropName）", color = Muted, fontSize = 14.sp)
+                    if (weightGram > 0f) {
+                        Text("収穫量：${weightGram}g", color = Muted, fontSize = 14.sp)
+                    }
+                    Text(
+                        "収穫日：${dateFormat.format(Date(System.currentTimeMillis()))}",
+                        color = Muted,
+                        fontSize = 14.sp,
+                    )
+                }
+                OutlinedButton(
+                    onClick = onOk,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Primary),
+                ) {
+                    Text("OK", color = Primary, fontSize = 16.sp)
+                }
             }
         }
     }

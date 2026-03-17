@@ -74,8 +74,10 @@ fun AppNavHost() {
                 val route: Detail = backStackEntry.toRoute()
                 DetailScreen(
                     deviceId = route.deviceId,
+                    promptCamera = route.promptCamera,
                     onBack = { navController.popBackStack() },
                     onHarvestClick = { navController.navigate(Harvest(route.deviceId)) },
+                    onPhotoClick = { navController.navigate(PhotoRecord(route.deviceId)) },
                     onDeleted = { navController.popBackStack() },
                 )
             }
@@ -88,7 +90,7 @@ fun AppNavHost() {
                 QrScanScreen(
                     cultivationId = route.cultivationId,
                     onNavigateToPhotoRecord = { deviceId ->
-                        navController.navigate(PhotoRecord(deviceId)) {
+                        navController.navigate(Detail(deviceId, promptCamera = true)) {
                             popUpTo<QrScan> { inclusive = true }
                         }
                     },
@@ -100,7 +102,7 @@ fun AppNavHost() {
                 PhotoRecordScreen(
                     deviceId = route.deviceId,
                     onBack = { navController.popBackStack() },
-                    onSaved = { navController.navigate(Detail(route.deviceId)) },
+                    onSaved = { navController.popBackStack() },
                 )
             }
             composable<Harvest> { backStackEntry ->

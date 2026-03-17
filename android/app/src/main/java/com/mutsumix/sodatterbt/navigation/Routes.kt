@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 
 // スタックに積む画面（6画面）
 @Serializable data class Seeding(val deviceId: Int)
-@Serializable data class Detail(val deviceId: Int)
+@Serializable data class Detail(val deviceId: Int, val promptCamera: Boolean = false)
 
 // cultivationId=-1: カメラで手動スキャン
 // cultivationId>=0: ディープリンク経由でIDが確定済み (sodatterbt://cultivation/{cultivationId})

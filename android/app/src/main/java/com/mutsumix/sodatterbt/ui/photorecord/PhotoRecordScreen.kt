@@ -1,5 +1,16 @@
 package com.mutsumix.sodatterbt.ui.photorecord
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -15,8 +26,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -29,11 +40,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import coil.compose.AsyncImage
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -56,11 +74,28 @@ fun PhotoRecordScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val deviceLabel = uiState.device?.name ?: ('A' + ((deviceId - 1) % 4)).toString()
+    val context = LocalContext.current
 
-    var isPreview by remember { mutableStateOf(false) }
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    var capturedUri by remember { mutableStateOf<Uri?>(null) }
     var showToast by remember { mutableStateOf(false) }
 
-    // 保存完了後にナビゲーション
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasCameraPermission = granted
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasCameraPermission) {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) {
             showToast = true
@@ -73,45 +108,129 @@ fun PhotoRecordScreen(
             .fillMaxSize()
             .background(Color.Black),
     ) {
-        // シミュレートされたカメラ背景
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color(0xFF1A2A1A)),
-        )
-
-        if (isPreview) {
+        if (capturedUri != null) {
+            // 撮影画像の表示
+            AsyncImage(
+                model = capturedUri,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
             PreviewOverlay(
-                onRetake = { isPreview = false },
+                onRetake = { capturedUri = null },
                 onSave = {
-                    // CameraX実装まではプレースホルダーURIを使用
-                    val placeholderUri = "content://placeholder/${System.currentTimeMillis()}"
-                    viewModel.savePhoto(placeholderUri)
+                    viewModel.savePhoto(capturedUri.toString())
                 },
             )
-        } else {
-            ViewfinderInfoBar(
+        } else if (hasCameraPermission) {
+            // カメラプレビュー
+            CameraPreviewWithCapture(
+                onPhotoCaptured = { uri -> capturedUri = uri },
+                onSkip = onBack,
                 deviceLabel = deviceLabel,
                 cropName = uiState.cropName,
                 daysElapsed = uiState.daysElapsed,
+                recentPhotoDates = uiState.recentPhotoDates,
             )
-
-            if (uiState.recentPhotoDates.isNotEmpty()) {
-                ReferenceThumbnailStrip(
-                    photoDates = uiState.recentPhotoDates,
-                    modifier = Modifier.align(Alignment.BottomCenter),
-                )
+        } else {
+            // 権限なし
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("カメラの権限が必要です", color = Color.White, fontSize = 16.sp)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedButton(onClick = onBack) {
+                        Text("戻る", color = Color.White)
+                    }
+                }
             }
-
-            ViewfinderControls(
-                onSkip = onBack,
-                onShutter = { isPreview = true },
-            )
         }
 
         if (showToast) {
             SaveToast()
         }
+    }
+}
+
+@Composable
+private fun CameraPreviewWithCapture(
+    onPhotoCaptured: (Uri) -> Unit,
+    onSkip: () -> Unit,
+    deviceLabel: String,
+    cropName: String,
+    daysElapsed: Int,
+    recentPhotoDates: List<Long>,
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    val imageCapture = remember {
+        ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .build()
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        AndroidView(
+            factory = { ctx ->
+                val previewView = PreviewView(ctx)
+                val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                cameraProviderFuture.addListener({
+                    val cameraProvider = cameraProviderFuture.get()
+                    val preview = Preview.Builder().build().also {
+                        it.surfaceProvider = previewView.surfaceProvider
+                    }
+                    cameraProvider.unbindAll()
+                    cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        CameraSelector.DEFAULT_BACK_CAMERA,
+                        preview,
+                        imageCapture,
+                    )
+                }, ContextCompat.getMainExecutor(ctx))
+                previewView
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+
+        ViewfinderInfoBar(
+            deviceLabel = deviceLabel,
+            cropName = cropName,
+            daysElapsed = daysElapsed,
+        )
+
+        if (recentPhotoDates.isNotEmpty()) {
+            ReferenceThumbnailStrip(
+                photoDates = recentPhotoDates,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
+
+        ViewfinderControls(
+            onSkip = onSkip,
+            onShutter = {
+                val photoFile = File(
+                    context.filesDir,
+                    "photos/growth_${System.currentTimeMillis()}.jpg"
+                )
+                photoFile.parentFile?.mkdirs()
+                val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
+                imageCapture.takePicture(
+                    outputOptions,
+                    ContextCompat.getMainExecutor(context),
+                    object : ImageCapture.OnImageSavedCallback {
+                        override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                            onPhotoCaptured(Uri.fromFile(photoFile))
+                        }
+                        override fun onError(exc: ImageCaptureException) {
+                            // 撮影失敗時は何もしない（ユーザーは再度シャッターを押せる）
+                        }
+                    }
+                )
+            },
+        )
     }
 }
 

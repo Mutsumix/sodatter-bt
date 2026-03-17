@@ -26,6 +26,7 @@ data class DetailUiState(
     val cultivation: CultivationEntity? = null,
     val growthPhotos: List<GrowthPhotoEntity> = emptyList(),
     val isLoading: Boolean = true,
+    val isDeleted: Boolean = false,
 )
 
 @HiltViewModel
@@ -62,6 +63,14 @@ class DetailViewModel @Inject constructor(
                     )
                 }
                 .collect { _uiState.value = it }
+        }
+    }
+
+    fun deleteCultivation() {
+        val cultivationId = _uiState.value.cultivation?.id ?: return
+        viewModelScope.launch {
+            cultivationRepository.delete(cultivationId)
+            _uiState.value = _uiState.value.copy(isDeleted = true)
         }
     }
 }

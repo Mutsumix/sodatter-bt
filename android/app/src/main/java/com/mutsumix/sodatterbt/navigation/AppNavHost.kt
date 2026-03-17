@@ -76,6 +76,7 @@ fun AppNavHost() {
                     deviceId = route.deviceId,
                     onBack = { navController.popBackStack() },
                     onHarvestClick = { navController.navigate(Harvest(route.deviceId)) },
+                    onDeleted = { navController.popBackStack() },
                 )
             }
             composable<QrScan>(

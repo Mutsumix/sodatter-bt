@@ -31,4 +31,7 @@ interface CultivationDao {
 
     @Update
     suspend fun update(cultivation: CultivationEntity)
+
+    @Query("DELETE FROM cultivations WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }

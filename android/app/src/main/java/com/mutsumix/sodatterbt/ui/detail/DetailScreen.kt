@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,10 +29,16 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.window.Dialog
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -63,9 +70,15 @@ fun DetailScreen(
     deviceId: Int,
     onBack: () -> Unit,
     onHarvestClick: () -> Unit,
+    onDeleted: () -> Unit = onBack,
     viewModel: DetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.isDeleted) {
+        if (uiState.isDeleted) onDeleted()
+    }
 
     if (uiState.isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -96,6 +109,17 @@ fun DetailScreen(
                         )
                     }
                 },
+                actions = {
+                    if (cultivation != null) {
+                        IconButton(onClick = { showDeleteConfirm = true }) {
+                            Icon(
+                                imageVector = Icons.Filled.Delete,
+                                contentDescription = "削除",
+                                tint = Color(0xFFEC0000),
+                            )
+                        }
+                    }
+                },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = Color.White,
                 ),
@@ -117,6 +141,42 @@ fun DetailScreen(
             if (cultivation != null && device != null) {
                 InfoCard(device = device, cultivation = cultivation)
                 GrowthLogSection(photos = uiState.growthPhotos)
+            }
+        }
+    }
+
+    if (showDeleteConfirm && cultivation != null) {
+        Dialog(onDismissRequest = { showDeleteConfirm = false }) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color.White,
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text("栽培記録を削除しますか？", color = OnBackground, fontSize = 16.sp)
+                    Text(
+                        "「${cultivation.varietyName}」の栽培記録と関連する写真データが削除されます。この操作は取り消せません。",
+                        color = Muted,
+                        fontSize = 14.sp,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = { showDeleteConfirm = false }) {
+                            Text("キャンセル", color = Muted)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        TextButton(onClick = {
+                            showDeleteConfirm = false
+                            viewModel.deleteCultivation()
+                        }) {
+                            Text("削除", color = Color(0xFFEC0000))
+                        }
+                    }
+                }
             }
         }
     }

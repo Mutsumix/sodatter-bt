@@ -10,7 +10,10 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.util.Consumer
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -38,6 +41,17 @@ fun AppNavHost() {
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = currentBackStackEntry?.destination
 
+    // アプリがバックグラウンドにある状態でディープリンクが来た場合にNavControllerへ転送
+    val context = LocalContext.current
+    DisposableEffect(navController) {
+        val activity = context as? androidx.activity.ComponentActivity
+        val listener = Consumer<android.content.Intent> { intent ->
+            navController.handleDeepLink(intent)
+        }
+        activity?.addOnNewIntentListener(listener)
+        onDispose { activity?.removeOnNewIntentListener(listener) }
+    }
+
     val showBottomBar = currentDestination?.hierarchy?.any { dest ->
         dest.hasRoute(Home::class) ||
             dest.hasRoute(History::class) ||
@@ -60,6 +74,7 @@ fun AppNavHost() {
                     innerPadding = innerPadding,
                     onDeviceClick = { deviceId -> navController.navigate(Detail(deviceId)) },
                     onEmptySlotClick = { deviceId -> navController.navigate(Seeding(deviceId)) },
+                    onQrScanClick = { navController.navigate(QrScan()) },
                 )
             }
             composable<Seeding> { backStackEntry ->

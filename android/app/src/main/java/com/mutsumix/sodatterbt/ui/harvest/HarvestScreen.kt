@@ -31,11 +31,15 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
@@ -96,6 +100,39 @@ fun HarvestScreen(
     val cultivation = uiState.cultivation
     val device = uiState.device
 
+    // ステップ式収穫確認ダイアログ
+    // step: 0=非表示, 1=重量未取得警告, 2=ラベル印刷確認, 3=最終確認
+    var harvestStep by remember { mutableIntStateOf(0) }
+
+    fun startHarvestFlow() {
+        if (uiState.weightGram <= 0f) {
+            harvestStep = 1 // 重量未取得
+        } else if (!uiState.hasPrinted) {
+            harvestStep = 2 // ラベル未印刷
+        } else {
+            harvestStep = 3 // 最終確認
+        }
+    }
+
+    if (harvestStep > 0) {
+        HarvestConfirmDialog(
+            step = harvestStep,
+            onDismiss = { harvestStep = 0 },
+            onSkipWeight = {
+                if (!uiState.hasPrinted) harvestStep = 2 else harvestStep = 3
+            },
+            onPrintLabel = {
+                harvestStep = 0
+                onLabelPrintClick(uiState.weightGram)
+            },
+            onSkipLabel = { harvestStep = 3 },
+            onConfirm = {
+                harvestStep = 0
+                viewModel.complete()
+            },
+        )
+    }
+
     // 収穫完了ダイアログ（OKを押すまで遷移しない）
     if (uiState.isCompleted) {
         HarvestCompleteDialog(
@@ -126,8 +163,11 @@ fun HarvestScreen(
         },
         bottomBar = {
             HarvestBottomBar(
-                onComplete = { viewModel.complete() },
-                onLabelPrint = { onLabelPrintClick(uiState.weightGram) },
+                onComplete = { startHarvestFlow() },
+                onLabelPrint = {
+                    viewModel.markPrinted()
+                    onLabelPrintClick(uiState.weightGram)
+                },
             )
         },
         containerColor = Color.White,
@@ -157,6 +197,107 @@ fun HarvestScreen(
                 onConnect = { connectScaleWithPermission() },
             )
             HarvestDateField(millis = System.currentTimeMillis())
+        }
+    }
+}
+
+@Composable
+private fun HarvestConfirmDialog(
+    step: Int,
+    onDismiss: () -> Unit,
+    onSkipWeight: () -> Unit,
+    onPrintLabel: () -> Unit,
+    onSkipLabel: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color.White,
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                // 進捗表示
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    for (i in 1..3) {
+                        Surface(
+                            shape = RoundedCornerShape(2.dp),
+                            color = if (i <= step) Primary else Divider,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(4.dp),
+                        ) {}
+                    }
+                }
+
+                when (step) {
+                    1 -> {
+                        Text("重量が取得されていません", color = OnBackground, fontSize = 16.sp)
+                        Text(
+                            "スケールで重量を計測せずに収穫を完了しますか？",
+                            color = Muted,
+                            fontSize = 14.sp,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                        ) {
+                            TextButton(onClick = onDismiss) {
+                                Text("戻る", color = Muted)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TextButton(onClick = onSkipWeight) {
+                                Text("重量なしで続行", color = Primary)
+                            }
+                        }
+                    }
+                    2 -> {
+                        Text("ラベルを印刷しますか？", color = OnBackground, fontSize = 16.sp)
+                        Text(
+                            "収穫ラベルをまだ印刷していません。",
+                            color = Muted,
+                            fontSize = 14.sp,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                        ) {
+                            TextButton(onClick = onSkipLabel) {
+                                Text("印刷せず続行", color = Muted)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TextButton(onClick = onPrintLabel) {
+                                Text("ラベルを印刷", color = Primary)
+                            }
+                        }
+                    }
+                    3 -> {
+                        Text("収穫を完了しますか？", color = OnBackground, fontSize = 16.sp)
+                        Text(
+                            "この操作は取り消せません。栽培記録が収穫済みになります。",
+                            color = Muted,
+                            fontSize = 14.sp,
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                        ) {
+                            TextButton(onClick = onDismiss) {
+                                Text("キャンセル", color = Muted)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TextButton(onClick = onConfirm) {
+                                Text("収穫を完了", color = Secondary)
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

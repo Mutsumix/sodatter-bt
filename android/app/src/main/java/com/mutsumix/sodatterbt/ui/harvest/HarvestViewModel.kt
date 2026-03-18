@@ -25,6 +25,7 @@ data class HarvestUiState(
     val scaleConnected: Boolean = false,
     val isScanning: Boolean = false,
     val isCompleted: Boolean = false,
+    val hasPrinted: Boolean = false,
     val isLoading: Boolean = true,
     val error: String? = null,
 )
@@ -96,6 +97,10 @@ class HarvestViewModel @Inject constructor(
             scaleManager.disconnect()
             _uiState.value = _uiState.value.copy(isCompleted = true)
         }
+    }
+
+    fun markPrinted() {
+        _uiState.value = _uiState.value.copy(hasPrinted = true)
     }
 
     fun clearError() {

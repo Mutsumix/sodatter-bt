@@ -150,7 +150,12 @@ fun AppNavHost() {
                 )
             }
             composable<History> {
-                HistoryScreen(innerPadding = innerPadding)
+                HistoryScreen(
+                    innerPadding = innerPadding,
+                    onRecordClick = { deviceId, cultivationId ->
+                        navController.navigate(Detail(deviceId, cultivationId = cultivationId))
+                    },
+                )
             }
             composable<Settings> {
                 SettingsScreen(innerPadding = innerPadding)

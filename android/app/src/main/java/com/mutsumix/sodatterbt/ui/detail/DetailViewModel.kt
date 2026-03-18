@@ -15,6 +15,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
@@ -37,18 +38,24 @@ class DetailViewModel @Inject constructor(
     private val growthPhotoRepository: GrowthPhotoRepository,
 ) : ViewModel() {
 
-    private val deviceId: Int = savedStateHandle.toRoute<Detail>().deviceId
+    private val route = savedStateHandle.toRoute<Detail>()
+    private val deviceId: Int = route.deviceId
 
     private val _uiState = MutableStateFlow(DetailUiState())
     val uiState: StateFlow<DetailUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
-            val activeCultivationFlow = cultivationRepository.getActiveCultivationByDevice(deviceId)
+            // cultivationId指定あり → そのIDで取得、なし → デバイスのアクティブ栽培
+            val cultivationFlow: Flow<CultivationEntity?> = if (route.cultivationId >= 0L) {
+                cultivationRepository.getById(route.cultivationId)
+            } else {
+                cultivationRepository.getActiveCultivationByDevice(deviceId)
+            }
 
-            activeCultivationFlow
+            cultivationFlow
                 .combine(
-                    activeCultivationFlow
+                    cultivationFlow
                         .filterNotNull()
                         .flatMapLatest { cultivation ->
                             growthPhotoRepository.getPhotosForCultivation(cultivation.id)

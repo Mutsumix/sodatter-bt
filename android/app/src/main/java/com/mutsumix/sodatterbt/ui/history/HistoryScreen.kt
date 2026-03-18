@@ -1,6 +1,7 @@
 package com.mutsumix.sodatterbt.ui.history
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,6 +51,7 @@ private val monthDayFormat = SimpleDateFormat("MM/dd", Locale.JAPAN)
 @Composable
 fun HistoryScreen(
     innerPadding: PaddingValues,
+    onRecordClick: (deviceId: Int, cultivationId: Long) -> Unit = { _, _ -> },
     viewModel: HistoryViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -98,7 +100,10 @@ fun HistoryScreen(
                     val records = grouped[month] ?: emptyList()
                     items(records) { record ->
                         Spacer(modifier = Modifier.height(12.dp))
-                        HarvestRecordCard(record = record)
+                        HarvestRecordCard(
+                            record = record,
+                            onClick = { onRecordClick(record.cultivation.deviceId, record.cultivation.id) },
+                        )
                     }
                 }
                 item {
@@ -180,7 +185,7 @@ private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun HarvestRecordCard(record: HarvestRecord) {
+private fun HarvestRecordCard(record: HarvestRecord, onClick: () -> Unit = {}) {
     val cultivation = record.cultivation
     val seedingStr = monthDayFormat.format(Date(cultivation.seedingDate))
     val harvestStr = cultivation.harvestDate?.let { monthDayFormat.format(Date(it)) } ?: "---"
@@ -195,7 +200,9 @@ private fun HarvestRecordCard(record: HarvestRecord) {
         shape = RoundedCornerShape(8.dp),
         color = Color.White,
         border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
     ) {
         Row(
             modifier = Modifier.padding(0.dp),

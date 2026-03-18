@@ -138,7 +138,9 @@ fun DetailScreen(
             )
         },
         bottomBar = {
-            HarvestBottomBar(onHarvestClick = onHarvestClick)
+            if (cultivation?.isActive == true) {
+                HarvestBottomBar(onHarvestClick = onHarvestClick)
+            }
         },
         containerColor = Color.White,
     ) { innerPadding ->
@@ -313,8 +315,13 @@ fun DetailScreen(
 
 @Composable
 private fun InfoCard(device: DeviceEntity, cultivation: CultivationEntity) {
-    val daysElapsed = ((System.currentTimeMillis() - cultivation.seedingDate) / 86_400_000L).toInt()
+    val effectiveEnd = cultivation.harvestDate ?: System.currentTimeMillis()
+    val daysElapsed = ((effectiveEnd - cultivation.seedingDate) / 86_400_000L).toInt()
     val seedingDateStr = dateFormat.format(Date(cultivation.seedingDate))
+    val harvestDateStr = cultivation.harvestDate?.let { dateFormat.format(Date(it)) }
+    val weightStr = cultivation.harvestWeightGram?.let {
+        if (it % 1f == 0f) "${it.toInt()}g" else "${it}g"
+    }
 
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -355,25 +362,41 @@ private fun InfoCard(device: DeviceEntity, cultivation: CultivationEntity) {
             Spacer(modifier = Modifier.height(16.dp))
             HorizontalDivider(color = Divider)
             Spacer(modifier = Modifier.height(16.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "播種日：$seedingDateStr",
-                    color = Muted,
-                    fontSize = 14.sp,
-                    modifier = Modifier.weight(1f),
-                )
-                VerticalDivider(
-                    modifier = Modifier
-                        .height(16.dp)
-                        .padding(horizontal = 12.dp),
-                    color = Divider,
-                )
-                Text(
-                    "Day $daysElapsed",
-                    color = Primary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "播種日：$seedingDateStr",
+                        color = Muted,
+                        fontSize = 14.sp,
+                        modifier = Modifier.weight(1f),
+                    )
+                    VerticalDivider(
+                        modifier = Modifier
+                            .height(16.dp)
+                            .padding(horizontal = 12.dp),
+                        color = Divider,
+                    )
+                    Text(
+                        "Day $daysElapsed",
+                        color = Primary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                    )
+                }
+                if (harvestDateStr != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("収穫日：$harvestDateStr", color = Muted, fontSize = 14.sp)
+                        if (weightStr != null) {
+                            VerticalDivider(
+                                modifier = Modifier
+                                    .height(16.dp)
+                                    .padding(horizontal = 12.dp),
+                                color = Divider,
+                            )
+                            Text("収穫量：$weightStr", color = Muted, fontSize = 14.sp)
+                        }
+                    }
+                }
             }
         }
     }

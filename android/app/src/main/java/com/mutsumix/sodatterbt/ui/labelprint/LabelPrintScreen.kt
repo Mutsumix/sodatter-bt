@@ -126,10 +126,8 @@ fun LabelPrintScreen(
             },
             bottomBar = {
                 LabelPrintBottomBar(
-                    printerConnected = uiState.printerConnected,
                     isPrinting = uiState.isPrinting,
                     onPrint = { viewModel.print() },
-                    onDone = onDone,
                 )
             },
             containerColor = Color.White,
@@ -201,46 +199,27 @@ private fun LabelMockup(device: DeviceEntity, cultivation: CultivationEntity, ov
         ) {
             Column {
                 PerforatedEdge()
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Text("🌿", fontSize = 14.sp)
-                        Text("Sodatter-BT", color = Color(0xFFABABAB), fontSize = 10.sp, letterSpacing = 2.sp)
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     Text(cultivation.varietyName, color = OnBackground, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text(cultivation.manufacturer, color = Muted, fontSize = 12.sp)
+                    Text(cultivation.manufacturer, color = Muted, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider(color = Divider)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("播種: $seedingDateStr", color = OnBackground, fontSize = 14.sp)
+                    Text("収穫: $harvestDateStr", color = OnBackground, fontSize = 14.sp)
+                    Text("重量: ${weightStr}g", color = OnBackground, fontSize = 14.sp)
+                    Text("装置${device.name}  Day $daysElapsed", color = Muted, fontSize = 14.sp)
                     Spacer(modifier = Modifier.height(12.dp))
                     HorizontalDivider(color = Divider)
                     Spacer(modifier = Modifier.height(12.dp))
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        LabelDateRow(icon = "🌱", label = "播種：", value = seedingDateStr)
-                        LabelDateRow(icon = "✂", label = "収穫：", value = harvestDateStr)
-                    }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    HorizontalDivider(color = Divider)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
+                    Box(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Bottom,
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("重量", color = Muted, fontSize = 12.sp)
-                            Text(weightStr, color = OnBackground, fontSize = 36.sp)
-                            Text("g", color = Muted, fontSize = 14.sp)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            ) {
-                                DeviceSlotBadge(label = device.name, size = 20)
-                                Text("Day $daysElapsed", color = Muted, fontSize = 12.sp)
-                            }
-                        }
-                        QrCodeMock(size = 64)
+                        QrCodeMock(size = 80)
                     }
                 }
                 PerforatedEdge()
@@ -268,18 +247,6 @@ private fun PerforatedEdge() {
                     .background(Divider),
             )
         }
-    }
-}
-
-@Composable
-private fun LabelDateRow(icon: String, label: String, value: String) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(icon, fontSize = 12.sp)
-        Text(label, color = OnBackground, fontSize = 14.sp)
-        Text(value, color = OnBackground, fontSize = 14.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -407,10 +374,8 @@ private fun DeviceSlotBadge(label: String, size: Int = 24) {
 
 @Composable
 private fun LabelPrintBottomBar(
-    printerConnected: Boolean,
     isPrinting: Boolean,
     onPrint: () -> Unit,
-    onDone: () -> Unit,
 ) {
     Surface(
         color = Color.White,
@@ -418,10 +383,7 @@ private fun LabelPrintBottomBar(
     ) {
         Column {
             HorizontalDivider(color = Divider)
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+            Column(modifier = Modifier.padding(16.dp)) {
                 OutlinedButton(
                     onClick = onPrint,
                     enabled = !isPrinting,
@@ -432,16 +394,6 @@ private fun LabelPrintBottomBar(
                     border = BorderStroke(1.dp, Primary),
                 ) {
                     Text(if (isPrinting) "印刷中…" else "印刷", color = Primary, fontSize = 16.sp)
-                }
-                OutlinedButton(
-                    onClick = onDone,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, Secondary),
-                ) {
-                    Text("完了 — ホームに戻る", color = Secondary, fontSize = 16.sp)
                 }
             }
         }

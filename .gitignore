@@ -1,4 +1,6 @@
 # Android
+*.jks
+*.keystore
 android/.gradle/
 android/.kotlin/
 android/local.properties

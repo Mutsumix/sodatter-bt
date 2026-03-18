@@ -7,9 +7,25 @@ plugins {
     alias(libs.plugins.hilt)
 }
 
+import java.util.Properties
+
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) load(f.inputStream())
+}
+
 android {
     namespace = "com.mutsumix.sodatterbt"
     compileSdk = 35
+
+    signingConfigs {
+        create("release") {
+            storeFile = file("upload-keystore.jks")
+            storePassword = localProps.getProperty("uploadStorePassword")
+            keyAlias = "upload"
+            keyPassword = localProps.getProperty("uploadKeyPassword")
+        }
+    }
 
     defaultConfig {
         applicationId = "com.mutsumix.sodatterbt"
@@ -27,6 +43,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

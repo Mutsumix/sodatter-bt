@@ -136,8 +136,8 @@ fun HarvestScreen(
     // 収穫完了ダイアログ（OKを押すまで遷移しない）
     if (uiState.isCompleted) {
         HarvestCompleteDialog(
-            deviceName = device?.name ?: "",
-            cropName = cultivation?.varietyName ?: "",
+            deviceName = uiState.completedDeviceName,
+            cropName = uiState.completedCropName,
             weightGram = uiState.weightGram,
             onOk = onComplete,
         )

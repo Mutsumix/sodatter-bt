@@ -25,6 +25,8 @@ data class HarvestUiState(
     val scaleConnected: Boolean = false,
     val isScanning: Boolean = false,
     val isCompleted: Boolean = false,
+    val completedDeviceName: String = "",
+    val completedCropName: String = "",
     val hasPrinted: Boolean = false,
     val isLoading: Boolean = true,
     val error: String? = null,
@@ -95,7 +97,11 @@ class HarvestViewModel @Inject constructor(
                 harvestDate = System.currentTimeMillis(),
             )
             scaleManager.disconnect()
-            _uiState.value = _uiState.value.copy(isCompleted = true)
+            _uiState.value = _uiState.value.copy(
+                isCompleted = true,
+                completedDeviceName = state.device?.name ?: "",
+                completedCropName = cultivation.varietyName,
+            )
         }
     }
 

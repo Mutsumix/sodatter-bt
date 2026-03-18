@@ -28,6 +28,7 @@ data class SeedingUiState(
     val variety: String = "",
     val manufacturer: String = "",
     val seedingDateMillis: Long = System.currentTimeMillis(),
+    val seedPhotoUri: String? = null,
     val deviceError: String = "",
     val varietyError: String = "",
     val isSaved: Boolean = false,
@@ -73,6 +74,10 @@ class SeedingViewModel @Inject constructor(
 
     fun setManufacturer(value: String) {
         _uiState.value = _uiState.value.copy(manufacturer = value)
+    }
+
+    fun setSeedPhotoUri(uri: String?) {
+        _uiState.value = _uiState.value.copy(seedPhotoUri = uri)
     }
 
     fun setSeedingDate(millis: Long) {
@@ -122,6 +127,7 @@ class SeedingViewModel @Inject constructor(
                     varietyName = state.variety,
                     manufacturer = state.manufacturer,
                     seedingDate = state.seedingDateMillis,
+                    seedPhotoUri = state.seedPhotoUri,
                 )
             )
             _uiState.value = _uiState.value.copy(isSaved = true, savedDeviceName = device.name)

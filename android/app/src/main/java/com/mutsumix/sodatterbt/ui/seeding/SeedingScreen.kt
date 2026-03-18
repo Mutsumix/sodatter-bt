@@ -1,6 +1,17 @@
 package com.mutsumix.sodatterbt.ui.seeding
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,7 +54,15 @@ import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import coil.compose.AsyncImage
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -242,7 +261,11 @@ fun SeedingScreen(
                 onValueChange = { viewModel.setManufacturer(it) },
             )
             SeedingDateSection(millis = uiState.seedingDateMillis)
-            SeedPhotoSection()
+            SeedPhotoSection(
+                photoUri = uiState.seedPhotoUri,
+                onPhotoTaken = { uri -> viewModel.setSeedPhotoUri(uri.toString()) },
+                onRemove = { viewModel.setSeedPhotoUri(null) },
+            )
         }
     }
 }
@@ -378,24 +401,158 @@ private fun SeedingDateSection(millis: Long) {
 }
 
 @Composable
-private fun SeedPhotoSection() {
+private fun SeedPhotoSection(
+    photoUri: String?,
+    onPhotoTaken: (Uri) -> Unit,
+    onRemove: () -> Unit,
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var showCamera by remember { mutableStateOf(false) }
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasCameraPermission = granted
+        if (granted) showCamera = true
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionLabel(text = "Seed Photo")
-        Surface(
-            shape = RoundedCornerShape(8.dp),
-            color = Color.White,
-            border = BorderStroke(1.dp, Divider),
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(3f / 2f),
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
+        SectionLabel(text = "種の写真")
+        if (photoUri != null) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                AsyncImage(
+                    model = photoUri,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(3f / 2f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showCamera = true },
+                )
+                TextButton(
+                    onClick = onRemove,
+                    modifier = Modifier.align(Alignment.TopEnd),
+                ) {
+                    Text("削除", color = Color(0xFFEC0000), fontSize = 12.sp)
+                }
+            }
+        } else {
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Divider),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(80.dp)
+                    .clickable {
+                        if (hasCameraPermission) showCamera = true
+                        else permissionLauncher.launch(Manifest.permission.CAMERA)
+                    },
             ) {
-                Text("📷", fontSize = 32.sp)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Take a photo (optional)", color = Muted, fontSize = 14.sp)
+                Box(contentAlignment = Alignment.Center) {
+                    Text("タップして種袋や播種時の様子を撮影（任意）", color = Muted, fontSize = 14.sp)
+                }
+            }
+        }
+    }
+
+    if (showCamera) {
+        SeedCameraDialog(
+            onCaptured = { uri ->
+                showCamera = false
+                onPhotoTaken(uri)
+            },
+            onDismiss = { showCamera = false },
+        )
+    }
+}
+
+@Composable
+private fun SeedCameraDialog(
+    onCaptured: (Uri) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val imageCapture = remember {
+        ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .build()
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            AndroidView(
+                factory = { ctx ->
+                    val previewView = PreviewView(ctx)
+                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                    cameraProviderFuture.addListener({
+                        val cameraProvider = cameraProviderFuture.get()
+                        val preview = androidx.camera.core.Preview.Builder().build().also {
+                            it.surfaceProvider = previewView.surfaceProvider
+                        }
+                        cameraProvider.unbindAll()
+                        cameraProvider.bindToLifecycle(
+                            lifecycleOwner,
+                            CameraSelector.DEFAULT_BACK_CAMERA,
+                            preview,
+                            imageCapture,
+                        )
+                    }, ContextCompat.getMainExecutor(ctx))
+                    previewView
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 48.dp),
+                horizontalArrangement = Arrangement.spacedBy(32.dp),
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text("キャンセル", color = Color.White, fontSize = 16.sp)
+                }
+                OutlinedButton(
+                    onClick = {
+                        val file = java.io.File(
+                            context.filesDir,
+                            "photos/seed_${System.currentTimeMillis()}.jpg"
+                        )
+                        file.parentFile?.mkdirs()
+                        val options = ImageCapture.OutputFileOptions.Builder(file).build()
+                        imageCapture.takePicture(
+                            options,
+                            ContextCompat.getMainExecutor(context),
+                            object : ImageCapture.OnImageSavedCallback {
+                                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                                    onCaptured(Uri.fromFile(file))
+                                }
+                                override fun onError(exc: ImageCaptureException) {}
+                            }
+                        )
+                    },
+                    shape = CircleShape,
+                    modifier = Modifier.size(64.dp),
+                    border = BorderStroke(2.dp, Secondary),
+                    contentPadding = PaddingValues(0.dp),
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        modifier = Modifier.size(52.dp),
+                    ) {}
+                }
             }
         }
     }

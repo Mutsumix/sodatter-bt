@@ -61,7 +61,6 @@ fun SettingsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var licensesOpen by remember { mutableStateOf(false) }
-    var showExportToast by remember { mutableStateOf(false) }
 
     // Edit dialogs state
     var editingKey by remember { mutableStateOf<String?>(null) }
@@ -105,34 +104,8 @@ fun SettingsScreen(
                 }
             }
             item {
-                SettingsSection(title = "データ") {
-                    DataSection(onExport = { showExportToast = true })
-                }
-            }
-            item {
                 SettingsSection(title = "このアプリについて") {
                     AboutSection(onLicensesClick = { licensesOpen = true })
-                }
-            }
-        }
-
-        if (showExportToast) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = 80.dp),
-                contentAlignment = Alignment.BottomCenter,
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(24.dp),
-                    color = OnBackground.copy(alpha = 0.8f),
-                ) {
-                    Text(
-                        "データをエクスポートしました",
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-                    )
                 }
             }
         }
@@ -433,60 +406,6 @@ private fun SettingRow(
 }
 
 @Composable
-private fun DataSection(onExport: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("⬇", fontSize = 16.sp, color = Primary)
-                Spacer(modifier = Modifier.width(12.dp))
-                OutlinedButton(
-                    onClick = onExport,
-                    modifier = Modifier.weight(1f),
-                    border = BorderStroke(0.dp, Color.Transparent),
-                    contentPadding = PaddingValues(0.dp),
-                ) {
-                    Text("データをエクスポート", color = OnBackground, fontSize = 14.sp)
-                }
-                Text("›", color = Color(0xFFC0C0C0), fontSize = 18.sp)
-            }
-            HorizontalDivider(color = Color(0xFFF0F0F0), modifier = Modifier.padding(horizontal = 16.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("☁", fontSize = 16.sp, color = Color(0xFFC0C0C0))
-                Spacer(modifier = Modifier.width(12.dp))
-                Text("クラウド同期", color = OnBackground, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color.White,
-                    border = BorderStroke(1.dp, Color(0xFFC0C0C0)),
-                ) {
-                    Text(
-                        "近日公開",
-                        color = Color(0xFFABABAB),
-                        fontSize = 10.sp,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun AboutSection(onLicensesClick: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -557,8 +476,13 @@ private val libraries = listOf(
     LibInfo("Hilt", "2.52", "Apache 2.0"),
     LibInfo("Navigation Compose", "2.8.5", "Apache 2.0"),
     LibInfo("Coroutines", "1.9.0", "Apache 2.0"),
+    LibInfo("Kotlinx Serialization", "1.7.3", "Apache 2.0"),
     LibInfo("OkHttp", "4.12.0", "Apache 2.0"),
     LibInfo("Coil", "2.7.0", "Apache 2.0"),
+    LibInfo("CameraX", "1.4.1", "Apache 2.0"),
+    LibInfo("ML Kit Barcode Scanning", "17.3.0", "Android SDK License"),
+    LibInfo("ZXing Core", "3.5.3", "Apache 2.0"),
+    LibInfo("StarXpand SDK", "1.6.0", "Star Micronics License"),
 )
 
 @Composable

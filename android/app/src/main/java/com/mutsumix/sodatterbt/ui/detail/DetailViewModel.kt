@@ -9,7 +9,14 @@ import com.mutsumix.sodatterbt.data.db.entity.DeviceEntity
 import com.mutsumix.sodatterbt.data.db.entity.GrowthPhotoEntity
 import com.mutsumix.sodatterbt.data.repository.CultivationRepository
 import com.mutsumix.sodatterbt.data.repository.DeviceRepository
+import com.mutsumix.sodatterbt.data.repository.DeviceSettingRepository
 import com.mutsumix.sodatterbt.data.repository.GrowthPhotoRepository
+import com.mutsumix.sodatterbt.data.repository.SettingKey
+import com.mutsumix.sodatterbt.device.epaper.EpaperApiClient
+import com.mutsumix.sodatterbt.device.epaper.EpaperResult
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import com.mutsumix.sodatterbt.navigation.Detail
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +35,9 @@ data class DetailUiState(
     val growthPhotos: List<GrowthPhotoEntity> = emptyList(),
     val isLoading: Boolean = true,
     val isDeleted: Boolean = false,
+    val canUpdateEpaper: Boolean = false,
+    val isUpdatingEpaper: Boolean = false,
+    val epaperMessage: String? = null,
 )
 
 @HiltViewModel
@@ -36,6 +46,8 @@ class DetailViewModel @Inject constructor(
     private val deviceRepository: DeviceRepository,
     private val cultivationRepository: CultivationRepository,
     private val growthPhotoRepository: GrowthPhotoRepository,
+    private val settingRepository: DeviceSettingRepository,
+    private val epaperApiClient: EpaperApiClient,
 ) : ViewModel() {
 
     private val route = savedStateHandle.toRoute<Detail>()
@@ -62,15 +74,48 @@ class DetailViewModel @Inject constructor(
                         }
                 ) { cultivation, photos ->
                     val device = deviceRepository.getById(deviceId)
+                    val esp32Ip = settingRepository.get(SettingKey.ESP32_IP)
+                    val hasEpaper = !esp32Ip.isNullOrBlank() && !device?.tagMacAddress.isNullOrBlank()
                     DetailUiState(
                         device = device,
                         cultivation = cultivation,
                         growthPhotos = photos,
                         isLoading = false,
+                        canUpdateEpaper = hasEpaper && cultivation != null,
                     )
                 }
                 .collect { _uiState.value = it }
         }
+    }
+
+    fun updateEpaperTag() {
+        val state = _uiState.value
+        val cultivation = state.cultivation ?: return
+        val device = state.device ?: return
+        val tagMac = device.tagMacAddress ?: return
+        viewModelScope.launch {
+            val esp32Ip = settingRepository.get(SettingKey.ESP32_IP) ?: return@launch
+            _uiState.value = _uiState.value.copy(isUpdatingEpaper = true, epaperMessage = null)
+            val dateFormat = SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN)
+            val result = epaperApiClient.updateTag(
+                apIpAddress = esp32Ip,
+                tagMacAddress = tagMac,
+                cultivationId = cultivation.id,
+                cropName = cultivation.varietyName,
+                manufacturer = cultivation.manufacturer,
+                seedingDate = dateFormat.format(Date(cultivation.seedingDate)),
+                deviceName = device.name,
+            )
+            val message = when (result) {
+                is EpaperResult.Success -> "電子ペーパータグを更新しました"
+                is EpaperResult.Failure -> "タグ更新に失敗: ${result.message}"
+            }
+            _uiState.value = _uiState.value.copy(isUpdatingEpaper = false, epaperMessage = message)
+        }
+    }
+
+    fun clearEpaperMessage() {
+        _uiState.value = _uiState.value.copy(epaperMessage = null)
     }
 
     fun deletePhoto(photoId: Long) {

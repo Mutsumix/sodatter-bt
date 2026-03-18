@@ -26,6 +26,8 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -519,27 +521,27 @@ private fun HarvestBottomBar(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                OutlinedButton(
+                Button(
                     onClick = onComplete,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
                     shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, Secondary),
+                    colors = ButtonDefaults.buttonColors(containerColor = Secondary),
                 ) {
-                    Text("✂", color = Secondary, fontSize = 16.sp)
+                    Text("✂", color = Color.White, fontSize = 16.sp)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("収穫を完了する", color = Secondary, fontSize = 16.sp)
+                    Text("収穫を完了する", color = Color.White, fontSize = 16.sp)
                 }
-                OutlinedButton(
+                Button(
                     onClick = onLabelPrint,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
                     shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, Primary),
+                    colors = ButtonDefaults.buttonColors(containerColor = Primary),
                 ) {
-                    Text("ラベルを印刷", color = Primary, fontSize = 16.sp)
+                    Text("ラベルを印刷", color = Color.White, fontSize = 16.sp)
                 }
             }
         }

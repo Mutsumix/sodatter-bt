@@ -27,6 +27,8 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -154,11 +156,51 @@ fun DetailScreen(
         ) {
             if (cultivation != null && device != null) {
                 InfoCard(device = device, cultivation = cultivation)
+                if (uiState.canUpdateEpaper) {
+                    OutlinedButton(
+                        onClick = { viewModel.updateEpaperTag() },
+                        enabled = !uiState.isUpdatingEpaper,
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        border = BorderStroke(1.dp, Primary),
+                    ) {
+                        Text(
+                            if (uiState.isUpdatingEpaper) "更新中…" else "電子ペーパーの表示を更新",
+                            color = Primary,
+                            fontSize = 14.sp,
+                        )
+                    }
+                }
                 GrowthLogSection(
                     photos = uiState.growthPhotos,
                     onPhotoClick = onPhotoClick,
                     onThumbnailClick = { photo -> expandedPhoto = photo },
                 )
+            }
+        }
+    }
+
+    // 電子ペーパー更新結果ダイアログ
+    if (uiState.epaperMessage != null) {
+        val isError = uiState.epaperMessage!!.contains("失敗")
+        Dialog(onDismissRequest = { viewModel.clearEpaperMessage() }) {
+            Surface(shape = RoundedCornerShape(12.dp), color = Color.White) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text(
+                        if (isError) "電子ペーパー更新エラー" else "更新完了",
+                        color = OnBackground,
+                        fontSize = 16.sp,
+                    )
+                    Text(uiState.epaperMessage!!, color = if (isError) Color(0xFFEC0000) else Muted, fontSize = 14.sp)
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = { viewModel.clearEpaperMessage() }) {
+                            Text("OK", color = Primary)
+                        }
+                    }
+                }
             }
         }
     }
@@ -500,17 +542,17 @@ private fun HarvestBottomBar(onHarvestClick: () -> Unit) {
         Column {
             HorizontalDivider(color = Divider)
             Box(modifier = Modifier.padding(16.dp)) {
-                OutlinedButton(
+                Button(
                     onClick = onHarvestClick,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
                     shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, Secondary),
+                    colors = ButtonDefaults.buttonColors(containerColor = Secondary),
                 ) {
-                    Text("✂", color = Secondary, fontSize = 16.sp)
+                    Text("✂", color = Color.White, fontSize = 16.sp)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("収穫", color = Secondary, fontSize = 16.sp)
+                    Text("収穫", color = Color.White, fontSize = 16.sp)
                 }
             }
         }

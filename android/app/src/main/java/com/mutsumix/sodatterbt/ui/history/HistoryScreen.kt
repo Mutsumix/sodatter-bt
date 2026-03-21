@@ -28,10 +28,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.text.SimpleDateFormat
@@ -222,8 +225,19 @@ private fun HarvestRecordCard(record: HarvestRecord, onClick: () -> Unit = {}) {
                     border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
                     modifier = Modifier.size(48.dp),
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text("🌱", fontSize = 20.sp)
+                    if (cultivation.seedPhotoUri != null) {
+                        AsyncImage(
+                            model = cultivation.seedPhotoUri,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(4.dp)),
+                        )
+                    } else {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("🌱", fontSize = 20.sp)
+                        }
                     }
                 }
             }

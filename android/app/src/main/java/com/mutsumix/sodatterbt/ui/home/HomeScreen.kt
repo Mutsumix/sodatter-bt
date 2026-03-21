@@ -172,7 +172,7 @@ private fun ActiveDeviceCard(
             .aspectRatio(1f),
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(1.dp, Secondary),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF2F8F2)),
     ) {
         Column(
             modifier = Modifier

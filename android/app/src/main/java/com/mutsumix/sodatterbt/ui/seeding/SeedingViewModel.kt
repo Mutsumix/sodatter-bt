@@ -92,6 +92,8 @@ class SeedingViewModel @Inject constructor(
      * 選択中デバイスにタグ連携が設定されているか判定する
      */
     suspend fun hasTagLink(): Boolean {
+        val epaperEnabled = settingRepository.get(SettingKey.BT_EPAPER_ENABLED)?.toBooleanStrictOrNull() ?: false
+        if (!epaperEnabled) return true // epaperオフなら確認ダイアログをスキップ
         val deviceId = _uiState.value.selectedDeviceId ?: return false
         val device = deviceRepository.getById(deviceId) ?: return false
         val esp32Ip = settingRepository.get(SettingKey.ESP32_IP)
@@ -136,10 +138,11 @@ class SeedingViewModel @Inject constructor(
             )
             _uiState.value = _uiState.value.copy(isSaved = true, savedDeviceName = device.name)
 
-            // 電子ペーパータグ更新 (ESP32が設定済みの場合のみ)
+            // 電子ペーパータグ更新 (トグルON かつ ESP32が設定済みの場合のみ)
+            val epaperEnabled = settingRepository.get(SettingKey.BT_EPAPER_ENABLED)?.toBooleanStrictOrNull() ?: false
             val esp32Ip = settingRepository.get(SettingKey.ESP32_IP)
             val tagMac = device.tagMacAddress
-            if (!esp32Ip.isNullOrBlank() && !tagMac.isNullOrBlank()) {
+            if (epaperEnabled && !esp32Ip.isNullOrBlank() && !tagMac.isNullOrBlank()) {
                 _uiState.value = _uiState.value.copy(isTagUpdating = true)
                 val dateStr = SimpleDateFormat("yyyy/MM/dd", Locale.JAPAN)
                     .format(Date(state.seedingDateMillis))

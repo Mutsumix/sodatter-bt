@@ -85,7 +85,7 @@ class SettingsViewModel @Inject constructor(
     fun fetchAvailableTags() {
         val ip = _uiState.value.esp32Ip
         if (ip.isBlank()) {
-            _uiState.value = _uiState.value.copy(tagFetchError = "ESP32 IPアドレスが未設定です")
+            _uiState.value = _uiState.value.copy(tagFetchError = "アクセスポイントのIPアドレスが未設定です")
             return
         }
         viewModelScope.launch {

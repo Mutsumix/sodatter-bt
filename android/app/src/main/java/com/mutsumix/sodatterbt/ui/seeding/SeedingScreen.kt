@@ -117,7 +117,7 @@ fun SeedingScreen(
                 ) {
                     Text("電子タグとの連携なしで登録しますか？", color = OnBackground, fontSize = 16.sp)
                     Text(
-                        "ESP32 IPアドレスまたはタグMACアドレスが未設定のため、電子ペーパータグは更新されません。",
+                        "アクセスポイントIPまたはタグMACアドレスが未設定のため、電子ペーパータグは更新されません。",
                         color = Muted,
                         fontSize = 14.sp,
                     )

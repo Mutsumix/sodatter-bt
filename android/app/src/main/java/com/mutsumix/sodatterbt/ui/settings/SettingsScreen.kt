@@ -114,7 +114,7 @@ fun SettingsScreen(
                                 editingDeviceId = null
                                 editingKey = "esp32_ip"
                                 editingValue = uiState.esp32Ip
-                                editingLabel = "ESP32 IPアドレス"
+                                editingLabel = "アクセスポイント IPアドレス"
                             },
                         )
                     }
@@ -411,7 +411,7 @@ private fun BtInfoDialog(onDismiss: () -> Unit) {
                     BtInfoItem(
                         icon = "📟",
                         name = "Gicisky 2.9インチ電子ペーパータグ",
-                        description = "ESP32（OpenEPaperLink）経由で栽培情報を表示します。容器に貼り付けて使用します。",
+                        description = "OpenEPaperLink対応アクセスポイント経由で栽培情報を表示します。容器に貼り付けて使用します。",
                     )
                     BtInfoItem(
                         icon = "⚖",
@@ -532,7 +532,7 @@ private fun Esp32Section(
     ) {
         SettingRow(
             icon = "📶",
-            label = "ESP32 アクセスポイント",
+            label = "OpenEPaperLink アクセスポイント",
             value = esp32Ip.ifBlank { "未設定" },
             connected = esp32Ip.isNotBlank(),
             onEdit = onEditEsp32,

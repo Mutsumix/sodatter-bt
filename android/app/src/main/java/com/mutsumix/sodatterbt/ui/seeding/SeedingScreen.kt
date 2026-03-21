@@ -35,6 +35,8 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -226,6 +228,7 @@ fun SeedingScreen(
         },
         bottomBar = {
             SeedingBottomBar(onRegister = {
+                if (!viewModel.validate()) return@SeedingBottomBar
                 scope.launch {
                     if (viewModel.hasTagLink()) {
                         viewModel.register()
@@ -566,16 +569,16 @@ private fun SeedingBottomBar(onRegister: () -> Unit) {
     ) {
         Column {
             HorizontalDivider(color = Divider)
-            Box(modifier = Modifier.padding(16.dp)) {
-                OutlinedButton(
+            Box(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp)) {
+                Button(
                     onClick = onRegister,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp),
                     shape = RoundedCornerShape(8.dp),
-                    border = BorderStroke(1.dp, Secondary),
+                    colors = ButtonDefaults.buttonColors(containerColor = Secondary),
                 ) {
-                    Text("登録", color = Secondary, fontSize = 16.sp)
+                    Text("登録", color = Color.White, fontSize = 16.sp)
                 }
             }
         }

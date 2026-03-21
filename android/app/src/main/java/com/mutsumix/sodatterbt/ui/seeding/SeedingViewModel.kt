@@ -98,19 +98,23 @@ class SeedingViewModel @Inject constructor(
         return !esp32Ip.isNullOrBlank() && !device.tagMacAddress.isNullOrBlank()
     }
 
-    fun register() {
+    fun validate(): Boolean {
         val state = _uiState.value
         var hasError = false
-
         if (state.selectedDeviceId == null) {
-            _uiState.value = state.copy(deviceError = "デバイスを選択してください")
+            _uiState.value = state.copy(deviceError = "容器を選択してください")
             hasError = true
         }
         if (state.variety.isBlank()) {
             _uiState.value = _uiState.value.copy(varietyError = "品種名を入力してください")
             hasError = true
         }
-        if (hasError) return
+        return !hasError
+    }
+
+    fun register() {
+        if (!validate()) return
+        val state = _uiState.value
 
         viewModelScope.launch {
             val deviceId = state.selectedDeviceId!!

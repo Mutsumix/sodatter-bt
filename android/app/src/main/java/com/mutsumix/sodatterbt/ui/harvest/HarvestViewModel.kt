@@ -105,6 +105,10 @@ class HarvestViewModel @Inject constructor(
         }
     }
 
+    fun setManualWeight(grams: Float) {
+        _uiState.value = _uiState.value.copy(weightGram = grams)
+    }
+
     fun markPrinted() {
         _uiState.value = _uiState.value.copy(hasPrinted = true)
     }

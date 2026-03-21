@@ -30,6 +30,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -197,6 +198,7 @@ fun HarvestScreen(
                 isScanning = uiState.isScanning,
                 onTare = { viewModel.tare() },
                 onConnect = { connectScaleWithPermission() },
+                onManualInput = { viewModel.setManualWeight(it) },
             )
             HarvestDateField(millis = System.currentTimeMillis())
         }
@@ -406,7 +408,21 @@ private fun WeightDisplay(
     isScanning: Boolean,
     onTare: () -> Unit,
     onConnect: () -> Unit,
+    onManualInput: (Float) -> Unit,
 ) {
+    var showManualDialog by remember { mutableStateOf(false) }
+
+    if (showManualDialog) {
+        ManualWeightDialog(
+            currentWeight = weightGram,
+            onDismiss = { showManualDialog = false },
+            onConfirm = { weight ->
+                onManualInput(weight)
+                showManualDialog = false
+            },
+        )
+    }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -439,13 +455,79 @@ private fun WeightDisplay(
         when {
             scaleConnected -> StatusDot(connected = true, label = "Decent Scale：接続済み")
             isScanning -> StatusDot(connected = false, label = "スキャン中…")
-            else -> OutlinedButton(
-                onClick = onConnect,
-                shape = RoundedCornerShape(4.dp),
-                border = BorderStroke(1.dp, Primary),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+            else -> Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text("スケールを接続", color = Primary, fontSize = 14.sp)
+                OutlinedButton(
+                    onClick = onConnect,
+                    shape = RoundedCornerShape(4.dp),
+                    border = BorderStroke(1.dp, Primary),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                ) {
+                    Text("スケールを接続", color = Primary, fontSize = 14.sp)
+                }
+                OutlinedButton(
+                    onClick = { showManualDialog = true },
+                    shape = RoundedCornerShape(4.dp),
+                    border = BorderStroke(1.dp, Muted),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                ) {
+                    Text("重量を手入力", color = Muted, fontSize = 14.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ManualWeightDialog(
+    currentWeight: Float,
+    onDismiss: () -> Unit,
+    onConfirm: (Float) -> Unit,
+) {
+    var text by remember {
+        mutableStateOf(if (currentWeight > 0f) currentWeight.toString() else "")
+    }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color.White,
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text("重量を入力", color = OnBackground, fontSize = 16.sp)
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it; error = null },
+                    singleLine = true,
+                    suffix = { Text("g", color = Muted) },
+                    isError = error != null,
+                    supportingText = error?.let { { Text(it) } },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("キャンセル", color = Muted)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    TextButton(onClick = {
+                        val parsed = text.toFloatOrNull()
+                        if (parsed == null || parsed < 0f) {
+                            error = "正の数値を入力してください"
+                        } else {
+                            onConfirm(parsed)
+                        }
+                    }) {
+                        Text("確定", color = Primary)
+                    }
+                }
             }
         }
     }

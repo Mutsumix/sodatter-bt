@@ -65,25 +65,26 @@ class DetailViewModel @Inject constructor(
                 cultivationRepository.getActiveCultivationByDevice(deviceId)
             }
 
-            cultivationFlow
-                .combine(
-                    cultivationFlow
-                        .filterNotNull()
-                        .flatMapLatest { cultivation ->
-                            growthPhotoRepository.getPhotosForCultivation(cultivation.id)
-                        }
-                ) { cultivation, photos ->
-                    val device = deviceRepository.getById(deviceId)
-                    val esp32Ip = settingRepository.get(SettingKey.ESP32_IP)
-                    val hasEpaper = !esp32Ip.isNullOrBlank() && !device?.tagMacAddress.isNullOrBlank()
-                    DetailUiState(
-                        device = device,
-                        cultivation = cultivation,
-                        growthPhotos = photos,
-                        isLoading = false,
-                        canUpdateEpaper = hasEpaper && cultivation != null && route.cultivationId < 0L,
-                    )
-                }
+            combine(
+                cultivationFlow,
+                cultivationFlow
+                    .filterNotNull()
+                    .flatMapLatest { cultivation ->
+                        growthPhotoRepository.getPhotosForCultivation(cultivation.id)
+                    },
+                settingRepository.observeBoolean(SettingKey.BT_EPAPER_ENABLED),
+            ) { cultivation, photos, epaperEnabled ->
+                val device = deviceRepository.getById(deviceId)
+                val esp32Ip = settingRepository.get(SettingKey.ESP32_IP)
+                val hasEpaper = !esp32Ip.isNullOrBlank() && !device?.tagMacAddress.isNullOrBlank()
+                DetailUiState(
+                    device = device,
+                    cultivation = cultivation,
+                    growthPhotos = photos,
+                    isLoading = false,
+                    canUpdateEpaper = epaperEnabled && hasEpaper && cultivation != null && route.cultivationId < 0L,
+                )
+            }
                 .collect { _uiState.value = it }
         }
     }

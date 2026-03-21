@@ -29,6 +29,7 @@ data class HarvestUiState(
     val isCompleted: Boolean = false,
     val completedDeviceName: String = "",
     val completedCropName: String = "",
+    val harvestDateMillis: Long = System.currentTimeMillis(),
     val hasPrinted: Boolean = false,
     val printerEnabled: Boolean = false,
     val scaleEnabled: Boolean = false,
@@ -111,7 +112,7 @@ class HarvestViewModel @Inject constructor(
             cultivationRepository.recordHarvest(
                 cultivationId = cultivation.id,
                 weightGram = state.weightGram,
-                harvestDate = System.currentTimeMillis(),
+                harvestDate = state.harvestDateMillis,
             )
             scaleManager.disconnect()
             _uiState.value = _uiState.value.copy(
@@ -120,6 +121,10 @@ class HarvestViewModel @Inject constructor(
                 completedCropName = cultivation.varietyName,
             )
         }
+    }
+
+    fun setHarvestDate(millis: Long) {
+        _uiState.value = _uiState.value.copy(harvestDateMillis = millis)
     }
 
     fun setManualWeight(grams: Float) {

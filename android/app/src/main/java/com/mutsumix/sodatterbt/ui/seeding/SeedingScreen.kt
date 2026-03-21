@@ -32,6 +32,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -41,6 +43,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -263,7 +266,10 @@ fun SeedingScreen(
                 value = uiState.manufacturer,
                 onValueChange = { viewModel.setManufacturer(it) },
             )
-            SeedingDateSection(millis = uiState.seedingDateMillis)
+            SeedingDateSection(
+                millis = uiState.seedingDateMillis,
+                onDateSelected = { viewModel.setSeedingDate(it) },
+            )
             SeedPhotoSection(
                 photoUri = uiState.seedPhotoUri,
                 onPhotoTaken = { uri -> viewModel.setSeedPhotoUri(uri.toString()) },
@@ -380,9 +386,34 @@ private fun ManufacturerInputSection(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SeedingDateSection(millis: Long) {
+private fun SeedingDateSection(millis: Long, onDateSelected: (Long) -> Unit) {
     val display = SimpleDateFormat("yyyy年MM月dd日", Locale.JAPAN).format(Date(millis))
+    var showPicker by remember { mutableStateOf(false) }
+
+    if (showPicker) {
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = millis)
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { onDateSelected(it) }
+                    showPicker = false
+                }) {
+                    Text("OK", color = Primary)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) {
+                    Text("キャンセル", color = Muted)
+                }
+            },
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionLabel(text = "播種日")
         Surface(
@@ -391,7 +422,8 @@ private fun SeedingDateSection(millis: Long) {
             border = BorderStroke(1.dp, Divider),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp),
+                .height(48.dp)
+                .clickable { showPicker = true },
         ) {
             Box(
                 modifier = Modifier.padding(horizontal = 12.dp),

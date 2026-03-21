@@ -209,7 +209,7 @@ fun SeedingScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("New Seeding", color = OnBackground, fontSize = 16.sp) },
+                title = { Text("種の登録", color = OnBackground, fontSize = 16.sp) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -278,7 +278,7 @@ private fun DeviceSelectorSection(
     onDeviceSelected: (Int) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionLabel(text = "Device")
+        SectionLabel(text = "容器")
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             devices.forEach { device ->
                 DeviceOptionButton(
@@ -317,7 +317,7 @@ private fun DeviceOptionButton(
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(device.name, color = textColor, fontSize = 16.sp, fontWeight = FontWeight.Medium)
             if (device.inUse) {
-                Text("In use", color = Color(0xFFB0B0B0), fontSize = 10.sp)
+                Text("使用中", color = Color(0xFFB0B0B0), fontSize = 10.sp)
             }
         }
     }
@@ -330,7 +330,7 @@ private fun VarietyInputSection(
     onValueChange: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionLabel(text = "Variety")
+        SectionLabel(text = "品種")
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
@@ -359,7 +359,7 @@ private fun ManufacturerInputSection(
     onValueChange: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionLabel(text = "Manufacturer")
+        SectionLabel(text = "種苗メーカー")
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
@@ -381,7 +381,7 @@ private fun ManufacturerInputSection(
 private fun SeedingDateSection(millis: Long) {
     val display = SimpleDateFormat("yyyy年MM月dd日", Locale.JAPAN).format(Date(millis))
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionLabel(text = "Seeding Date")
+        SectionLabel(text = "播種日")
         Surface(
             shape = RoundedCornerShape(8.dp),
             color = Color.White,
@@ -575,7 +575,7 @@ private fun SeedingBottomBar(onRegister: () -> Unit) {
                     shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, Secondary),
                 ) {
-                    Text("Register", color = Secondary, fontSize = 16.sp)
+                    Text("登録", color = Secondary, fontSize = 16.sp)
                 }
             }
         }

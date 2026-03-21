@@ -257,7 +257,7 @@ private fun ViewfinderInfoBar(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "デバイス $deviceLabel — $cropName",
+                        text = "容器 $deviceLabel — $cropName",
                         color = OnBackground,
                         fontSize = 14.sp,
                         maxLines = 1,

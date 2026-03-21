@@ -148,7 +148,7 @@ private fun FilterBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("デバイス：", color = Muted, fontSize = 12.sp)
+                Text("容器：", color = Muted, fontSize = 12.sp)
                 listOf("A", "B", "C", "D").forEach { d ->
                     FilterChip(
                         label = d,

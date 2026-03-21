@@ -235,7 +235,7 @@ private fun TopScanOverlay() {
             contentAlignment = Alignment.TopCenter,
         ) {
             Text(
-                text = "デバイスのタグをスキャンしてください",
+                text = "容器のタグをスキャンしてください",
                 color = Color.White,
                 fontSize = 16.sp,
                 modifier = Modifier.padding(top = 60.dp, start = 32.dp, end = 32.dp),

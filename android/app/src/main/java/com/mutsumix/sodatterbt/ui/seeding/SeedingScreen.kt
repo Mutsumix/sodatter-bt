@@ -166,7 +166,7 @@ fun SeedingScreen(
                     }
                     Text("登録が完了しました", color = OnBackground, fontSize = 16.sp)
                     Text(
-                        "デバイス ${uiState.savedDeviceName} に播種情報を登録しました",
+                        "容器 ${uiState.savedDeviceName} に播種情報を登録しました",
                         color = Muted,
                         fontSize = 14.sp,
                     )

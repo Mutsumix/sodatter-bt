@@ -340,7 +340,7 @@ private fun HarvestCompleteDialog(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Text("デバイス $deviceName（$cropName）", color = Muted, fontSize = 14.sp)
+                    Text("容器 $deviceName（$cropName）", color = Muted, fontSize = 14.sp)
                     if (weightGram > 0f) {
                         Text("収穫量：${weightGram}g", color = Muted, fontSize = 14.sp)
                     }

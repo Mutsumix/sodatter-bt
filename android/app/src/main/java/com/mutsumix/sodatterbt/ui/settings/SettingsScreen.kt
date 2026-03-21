@@ -96,7 +96,7 @@ fun SettingsScreen(
             }
             if (uiState.epaperEnabled) {
                 item {
-                    SettingsSection(title = "デバイス") {
+                    SettingsSection(title = "容器") {
                         DevicesSection(
                             devices = uiState.devices,
                             onTagEdit = { deviceId, _ ->
@@ -500,7 +500,7 @@ private fun DeviceRow(device: DeviceEntity, onEdit: () -> Unit) {
         ) {
             DeviceSlotBadge(label = device.name)
             Column {
-                Text("デバイス ${device.name}", color = OnBackground, fontSize = 14.sp)
+                Text("容器 ${device.name}", color = OnBackground, fontSize = 14.sp)
                 if (device.tagMacAddress != null) {
                     Text(
                         "タグ: ${device.tagMacAddress}",

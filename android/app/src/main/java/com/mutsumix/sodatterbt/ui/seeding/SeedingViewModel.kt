@@ -123,7 +123,7 @@ class SeedingViewModel @Inject constructor(
             // 二重播種防止
             val existing = cultivationRepository.getActiveCultivationByDevice(deviceId).first()
             if (existing != null) {
-                _uiState.value = _uiState.value.copy(deviceError = "このデバイスには既に栽培中の記録があります")
+                _uiState.value = _uiState.value.copy(deviceError = "この容器には既に栽培中の記録があります")
                 return@launch
             }
             val device = deviceRepository.getById(deviceId) ?: return@launch

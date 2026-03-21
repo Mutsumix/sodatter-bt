@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -27,6 +28,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -70,6 +73,7 @@ fun SettingsScreen(
     var editingError by remember { mutableStateOf<String?>(null) }
     // タグ選択ダイアログ
     var tagPickerDeviceId by remember { mutableStateOf<Int?>(null) }
+    var showBtInfoDialog by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -80,27 +84,40 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             item {
-                SettingsSection(title = "デバイス") {
-                    DevicesSection(
-                        devices = uiState.devices,
-                        onTagEdit = { deviceId, _ ->
-                            tagPickerDeviceId = deviceId
-                            viewModel.fetchAvailableTags()
-                        },
-                    )
-                }
+                BtTogglesSection(
+                    printerEnabled = uiState.printerEnabled,
+                    epaperEnabled = uiState.epaperEnabled,
+                    scaleEnabled = uiState.scaleEnabled,
+                    onPrinterToggle = { viewModel.togglePrinter(it) },
+                    onEpaperToggle = { viewModel.toggleEpaper(it) },
+                    onScaleToggle = { viewModel.toggleScale(it) },
+                    onInfoClick = { showBtInfoDialog = true },
+                )
             }
-            item {
-                SettingsSection(title = "電子ペーパー") {
-                    Esp32Section(
-                        esp32Ip = uiState.esp32Ip,
-                        onEditEsp32 = {
-                            editingDeviceId = null
-                            editingKey = "esp32_ip"
-                            editingValue = uiState.esp32Ip
-                            editingLabel = "ESP32 IPアドレス"
-                        },
-                    )
+            if (uiState.epaperEnabled) {
+                item {
+                    SettingsSection(title = "デバイス") {
+                        DevicesSection(
+                            devices = uiState.devices,
+                            onTagEdit = { deviceId, _ ->
+                                tagPickerDeviceId = deviceId
+                                viewModel.fetchAvailableTags()
+                            },
+                        )
+                    }
+                }
+                item {
+                    SettingsSection(title = "電子ペーパー") {
+                        Esp32Section(
+                            esp32Ip = uiState.esp32Ip,
+                            onEditEsp32 = {
+                                editingDeviceId = null
+                                editingKey = "esp32_ip"
+                                editingValue = uiState.esp32Ip
+                                editingLabel = "ESP32 IPアドレス"
+                            },
+                        )
+                    }
                 }
             }
             item {
@@ -273,6 +290,161 @@ fun SettingsScreen(
                     }
                 }
             }
+        }
+    }
+
+    if (showBtInfoDialog) {
+        BtInfoDialog(onDismiss = { showBtInfoDialog = false })
+    }
+}
+
+@Composable
+private fun BtTogglesSection(
+    printerEnabled: Boolean,
+    epaperEnabled: Boolean,
+    scaleEnabled: Boolean,
+    onPrinterToggle: (Boolean) -> Unit,
+    onEpaperToggle: (Boolean) -> Unit,
+    onScaleToggle: (Boolean) -> Unit,
+    onInfoClick: () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Bluetooth機器との連携",
+                color = Muted,
+                fontSize = 12.sp,
+                letterSpacing = 1.sp,
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = onInfoClick, modifier = Modifier.size(24.dp)) {
+                Icon(
+                    imageVector = Icons.Outlined.Info,
+                    contentDescription = "対応機器の情報",
+                    tint = Primary,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column {
+                BtToggleRow(
+                    icon = "🖨",
+                    label = "モバイルプリンター",
+                    checked = printerEnabled,
+                    onCheckedChange = onPrinterToggle,
+                )
+                HorizontalDivider(color = Color(0xFFF0F0F0), modifier = Modifier.padding(horizontal = 16.dp))
+                BtToggleRow(
+                    icon = "📟",
+                    label = "電子ペーパータグ",
+                    checked = epaperEnabled,
+                    onCheckedChange = onEpaperToggle,
+                )
+                HorizontalDivider(color = Color(0xFFF0F0F0), modifier = Modifier.padding(horizontal = 16.dp))
+                BtToggleRow(
+                    icon = "⚖",
+                    label = "電子スケール",
+                    checked = scaleEnabled,
+                    onCheckedChange = onScaleToggle,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BtToggleRow(
+    icon: String,
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(icon, fontSize = 16.sp)
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(label, color = OnBackground, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedTrackColor = Primary,
+                uncheckedTrackColor = Color(0xFFE0E0E0),
+            ),
+        )
+    }
+}
+
+@Composable
+private fun BtInfoDialog(onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color.White,
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text("対応Bluetooth機器", color = OnBackground, fontSize = 16.sp)
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    BtInfoItem(
+                        icon = "🖨",
+                        name = "Star SM-S210i",
+                        description = "モバイルプリンター。収穫時にQRコード付きラベルを印刷します。",
+                    )
+                    BtInfoItem(
+                        icon = "📟",
+                        name = "Gicisky 2.9インチ電子ペーパータグ",
+                        description = "ESP32（OpenEPaperLink）経由で栽培情報を表示します。容器に貼り付けて使用します。",
+                    )
+                    BtInfoItem(
+                        icon = "⚖",
+                        name = "Decent Scale",
+                        description = "BLE電子はかり。収穫物の重量をリアルタイムで計測します。",
+                    )
+                }
+                Text(
+                    "これらの機器がなくても、栽培管理・写真記録・履歴管理の基本機能はすべて利用できます。",
+                    color = Muted,
+                    fontSize = 13.sp,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("閉じる", color = Primary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BtInfoItem(icon: String, name: String, description: String) {
+    Row {
+        Text(icon, fontSize = 16.sp)
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(name, color = OnBackground, fontSize = 14.sp)
+            Text(description, color = Muted, fontSize = 12.sp)
         }
     }
 }

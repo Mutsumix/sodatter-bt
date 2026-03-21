@@ -22,6 +22,9 @@ data class SettingsUiState(
     val availableTags: List<EpaperTag> = emptyList(),
     val isFetchingTags: Boolean = false,
     val tagFetchError: String? = null,
+    val printerEnabled: Boolean = false,
+    val epaperEnabled: Boolean = false,
+    val scaleEnabled: Boolean = false,
 )
 
 @HiltViewModel
@@ -39,10 +42,16 @@ class SettingsViewModel @Inject constructor(
             combine(
                 deviceRepository.getAllDevicesWithCultivation(),
                 settingRepository.observe(SettingKey.ESP32_IP),
-            ) { devicesWithCultivation, esp32 ->
+                settingRepository.observeBoolean(SettingKey.BT_PRINTER_ENABLED),
+                settingRepository.observeBoolean(SettingKey.BT_EPAPER_ENABLED),
+                settingRepository.observeBoolean(SettingKey.BT_SCALE_ENABLED),
+            ) { devicesWithCultivation, esp32, printer, epaper, scale ->
                 SettingsUiState(
                     devices = devicesWithCultivation.map { it.device },
                     esp32Ip = esp32 ?: "",
+                    printerEnabled = printer,
+                    epaperEnabled = epaper,
+                    scaleEnabled = scale,
                 )
             }.collect { _uiState.value = it }
         }
@@ -59,6 +68,18 @@ class SettingsViewModel @Inject constructor(
 
     fun updateTagMac(deviceId: Int, macAddress: String?) {
         viewModelScope.launch { deviceRepository.updateTagMac(deviceId, macAddress) }
+    }
+
+    fun togglePrinter(enabled: Boolean) {
+        viewModelScope.launch { settingRepository.setBoolean(SettingKey.BT_PRINTER_ENABLED, enabled) }
+    }
+
+    fun toggleEpaper(enabled: Boolean) {
+        viewModelScope.launch { settingRepository.setBoolean(SettingKey.BT_EPAPER_ENABLED, enabled) }
+    }
+
+    fun toggleScale(enabled: Boolean) {
+        viewModelScope.launch { settingRepository.setBoolean(SettingKey.BT_SCALE_ENABLED, enabled) }
     }
 
     fun fetchAvailableTags() {

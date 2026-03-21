@@ -13,7 +13,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -186,6 +188,8 @@ fun AppNavHost() {
 
 private val DividerColor = Color(0xFFD4D4D4)
 private val OnBackground = Color(0xFF1A1A1C)
+private val NavBarColor = Color(0xFFF5F0EB) // 薄い茶色
+private val NavBarSelected = Color(0xFF6DAE72) // Secondary green
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -239,24 +243,34 @@ private fun AppBottomBar(
     navController: NavController,
     currentDestination: NavDestination?,
 ) {
-    NavigationBar {
+    val navItemColors = NavigationBarItemDefaults.colors(
+        selectedIconColor = NavBarSelected,
+        selectedTextColor = NavBarSelected,
+        indicatorColor = NavBarColor,
+        unselectedIconColor = Color(0xFF6B6B6B),
+        unselectedTextColor = Color(0xFF6B6B6B),
+    )
+    NavigationBar(containerColor = NavBarColor) {
         NavigationBarItem(
             selected = currentDestination?.hierarchy?.any { it.hasRoute(Home::class) } == true,
             onClick = { navController.navigateTopLevel(Home) },
             icon = { Icon(Icons.Filled.Home, contentDescription = null) },
             label = { Text("ホーム") },
+            colors = navItemColors,
         )
         NavigationBarItem(
             selected = currentDestination?.hierarchy?.any { it.hasRoute(History::class) } == true,
             onClick = { navController.navigateTopLevel(History) },
             icon = { Icon(Icons.Filled.History, contentDescription = null) },
             label = { Text("履歴") },
+            colors = navItemColors,
         )
         NavigationBarItem(
             selected = currentDestination?.hierarchy?.any { it.hasRoute(Settings::class) } == true,
             onClick = { navController.navigateTopLevel(Settings) },
             icon = { Icon(Icons.Filled.Settings, contentDescription = null) },
             label = { Text("設定") },
+            colors = navItemColors,
         )
     }
 }

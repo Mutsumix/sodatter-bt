@@ -8,6 +8,8 @@ import com.mutsumix.sodatterbt.data.db.entity.CultivationEntity
 import com.mutsumix.sodatterbt.data.db.entity.DeviceEntity
 import com.mutsumix.sodatterbt.data.repository.CultivationRepository
 import com.mutsumix.sodatterbt.data.repository.DeviceRepository
+import com.mutsumix.sodatterbt.data.repository.DeviceSettingRepository
+import com.mutsumix.sodatterbt.data.repository.SettingKey
 import com.mutsumix.sodatterbt.device.scale.DecentScaleManager
 import com.mutsumix.sodatterbt.device.scale.ScaleState
 import com.mutsumix.sodatterbt.navigation.Harvest
@@ -28,6 +30,8 @@ data class HarvestUiState(
     val completedDeviceName: String = "",
     val completedCropName: String = "",
     val hasPrinted: Boolean = false,
+    val printerEnabled: Boolean = false,
+    val scaleEnabled: Boolean = false,
     val isLoading: Boolean = true,
     val error: String? = null,
 )
@@ -38,6 +42,7 @@ class HarvestViewModel @Inject constructor(
     private val deviceRepository: DeviceRepository,
     private val cultivationRepository: CultivationRepository,
     private val scaleManager: DecentScaleManager,
+    private val settingRepository: DeviceSettingRepository,
 ) : ViewModel() {
 
     private val deviceId: Int = savedStateHandle.toRoute<Harvest>().deviceId
@@ -54,6 +59,18 @@ class HarvestViewModel @Inject constructor(
                     cultivation = cultivation,
                     isLoading = false,
                 )
+            }
+        }
+
+        viewModelScope.launch {
+            settingRepository.observeBoolean(SettingKey.BT_PRINTER_ENABLED).collect { enabled ->
+                _uiState.value = _uiState.value.copy(printerEnabled = enabled)
+            }
+        }
+
+        viewModelScope.launch {
+            settingRepository.observeBoolean(SettingKey.BT_SCALE_ENABLED).collect { enabled ->
+                _uiState.value = _uiState.value.copy(scaleEnabled = enabled)
             }
         }
 

@@ -110,7 +110,7 @@ fun HarvestScreen(
     fun startHarvestFlow() {
         if (uiState.weightGram <= 0f) {
             harvestStep = 1 // 重量未取得
-        } else if (!uiState.hasPrinted) {
+        } else if (uiState.printerEnabled && !uiState.hasPrinted) {
             harvestStep = 2 // ラベル未印刷
         } else {
             harvestStep = 3 // 最終確認
@@ -122,7 +122,7 @@ fun HarvestScreen(
             step = harvestStep,
             onDismiss = { harvestStep = 0 },
             onSkipWeight = {
-                if (!uiState.hasPrinted) harvestStep = 2 else harvestStep = 3
+                if (uiState.printerEnabled && !uiState.hasPrinted) harvestStep = 2 else harvestStep = 3
             },
             onPrintLabel = {
                 harvestStep = 0
@@ -171,6 +171,7 @@ fun HarvestScreen(
                     viewModel.markPrinted()
                     onLabelPrintClick(uiState.weightGram)
                 },
+                showPrintButton = uiState.printerEnabled,
             )
         },
         containerColor = Color.White,
@@ -199,6 +200,7 @@ fun HarvestScreen(
                 onTare = { viewModel.tare() },
                 onConnect = { connectScaleWithPermission() },
                 onManualInput = { viewModel.setManualWeight(it) },
+                showScaleConnect = uiState.scaleEnabled,
             )
             HarvestDateField(millis = System.currentTimeMillis())
         }
@@ -409,6 +411,7 @@ private fun WeightDisplay(
     onTare: () -> Unit,
     onConnect: () -> Unit,
     onManualInput: (Float) -> Unit,
+    showScaleConnect: Boolean = true,
 ) {
     var showManualDialog by remember { mutableStateOf(false) }
 
@@ -458,21 +461,23 @@ private fun WeightDisplay(
             else -> Row(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                OutlinedButton(
-                    onClick = onConnect,
-                    shape = RoundedCornerShape(4.dp),
-                    border = BorderStroke(1.dp, Primary),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                ) {
-                    Text("スケールを接続", color = Primary, fontSize = 14.sp)
+                if (showScaleConnect) {
+                    OutlinedButton(
+                        onClick = onConnect,
+                        shape = RoundedCornerShape(4.dp),
+                        border = BorderStroke(1.dp, Primary),
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                    ) {
+                        Text("スケールを接続", color = Primary, fontSize = 14.sp)
+                    }
                 }
                 OutlinedButton(
                     onClick = { showManualDialog = true },
                     shape = RoundedCornerShape(4.dp),
-                    border = BorderStroke(1.dp, Muted),
+                    border = BorderStroke(1.dp, if (showScaleConnect) Muted else Primary),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                 ) {
-                    Text("重量を手入力", color = Muted, fontSize = 14.sp)
+                    Text("重量を手入力", color = if (showScaleConnect) Muted else Primary, fontSize = 14.sp)
                 }
             }
         }
@@ -592,6 +597,7 @@ private fun DeviceSlotBadge(label: String) {
 private fun HarvestBottomBar(
     onComplete: () -> Unit,
     onLabelPrint: () -> Unit,
+    showPrintButton: Boolean = true,
 ) {
     Surface(
         color = Color.White,
@@ -615,6 +621,7 @@ private fun HarvestBottomBar(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("収穫を完了する", color = Color.White, fontSize = 16.sp)
                 }
+                if (showPrintButton) {
                 Button(
                     onClick = onLabelPrint,
                     modifier = Modifier
@@ -624,6 +631,7 @@ private fun HarvestBottomBar(
                     colors = ButtonDefaults.buttonColors(containerColor = Primary),
                 ) {
                     Text("ラベルを印刷", color = Color.White, fontSize = 16.sp)
+                }
                 }
             }
         }

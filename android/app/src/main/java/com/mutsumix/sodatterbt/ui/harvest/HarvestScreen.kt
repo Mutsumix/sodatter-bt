@@ -600,7 +600,7 @@ private fun HarvestBottomBar(
         Column {
             HorizontalDivider(color = Divider)
             Column(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Button(

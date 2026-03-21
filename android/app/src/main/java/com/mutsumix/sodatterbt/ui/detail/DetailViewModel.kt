@@ -81,7 +81,7 @@ class DetailViewModel @Inject constructor(
                         cultivation = cultivation,
                         growthPhotos = photos,
                         isLoading = false,
-                        canUpdateEpaper = hasEpaper && cultivation != null,
+                        canUpdateEpaper = hasEpaper && cultivation != null && route.cultivationId < 0L,
                     )
                 }
                 .collect { _uiState.value = it }

@@ -24,6 +24,13 @@ class CultivationRepository @Inject constructor(
 
     suspend fun delete(cultivationId: Long) = cultivationDao.deleteById(cultivationId)
 
+    suspend fun updateSeedPhotoUri(cultivationId: Long, uri: String?) {
+        val flow = cultivationDao.getById(cultivationId)
+        flow.first()?.let { current ->
+            cultivationDao.update(current.copy(seedPhotoUri = uri))
+        }
+    }
+
     suspend fun recordHarvest(cultivationId: Long, weightGram: Float, harvestDate: Long) {
         val flow = cultivationDao.getById(cultivationId)
         // 1回だけ取得して更新

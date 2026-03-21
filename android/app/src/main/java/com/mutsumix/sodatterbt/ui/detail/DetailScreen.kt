@@ -1,5 +1,15 @@
 package com.mutsumix.sodatterbt.ui.detail
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -7,6 +17,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -47,12 +59,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.compose.AsyncImage
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -89,6 +105,7 @@ fun DetailScreen(
     var showCameraPrompt by remember { mutableStateOf(promptCamera) }
     var expandedPhoto by remember { mutableStateOf<GrowthPhotoEntity?>(null) }
     var showPhotoDeleteConfirm by remember { mutableStateOf(false) }
+    var showSeedPhotoCamera by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.isDeleted) {
         if (uiState.isDeleted) onDeleted()
@@ -155,7 +172,11 @@ fun DetailScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             if (cultivation != null && device != null) {
-                InfoCard(device = device, cultivation = cultivation)
+                InfoCard(
+                    device = device,
+                    cultivation = cultivation,
+                    onSeedPhotoClick = { showSeedPhotoCamera = true },
+                )
                 if (uiState.canUpdateEpaper) {
                     OutlinedButton(
                         onClick = { viewModel.updateEpaperTag() },
@@ -321,6 +342,17 @@ fun DetailScreen(
         }
     }
 
+    // 種の写真変更カメラ
+    if (showSeedPhotoCamera) {
+        SeedPhotoCameraDialog(
+            onCaptured = { uri ->
+                showSeedPhotoCamera = false
+                viewModel.updateSeedPhoto(uri.toString())
+            },
+            onDismiss = { showSeedPhotoCamera = false },
+        )
+    }
+
     // 写真削除確認
     if (showPhotoDeleteConfirm && expandedPhoto != null) {
         Dialog(onDismissRequest = { showPhotoDeleteConfirm = false }) {
@@ -356,7 +388,11 @@ fun DetailScreen(
 }
 
 @Composable
-private fun InfoCard(device: DeviceEntity, cultivation: CultivationEntity) {
+private fun InfoCard(
+    device: DeviceEntity,
+    cultivation: CultivationEntity,
+    onSeedPhotoClick: () -> Unit = {},
+) {
     val effectiveEnd = cultivation.harvestDate ?: System.currentTimeMillis()
     val daysElapsed = ((effectiveEnd - cultivation.seedingDate) / 86_400_000L).toInt()
     val seedingDateStr = dateFormat.format(Date(cultivation.seedingDate))
@@ -381,10 +417,21 @@ private fun InfoCard(device: DeviceEntity, cultivation: CultivationEntity) {
                     shape = RoundedCornerShape(8.dp),
                     color = Surface2,
                     border = BorderStroke(1.dp, Divider),
-                    modifier = Modifier.size(80.dp),
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clickable(onClick = onSeedPhotoClick),
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text("🌱", fontSize = 32.sp)
+                    if (cultivation.seedPhotoUri != null) {
+                        AsyncImage(
+                            model = cultivation.seedPhotoUri,
+                            contentDescription = "種の写真",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text("🌱", fontSize = 32.sp)
+                        }
                     }
                 }
                 Column(
@@ -534,6 +581,109 @@ private fun DeviceSlotBadge(label: String) {
 }
 
 @Composable
+private fun SeedPhotoCameraDialog(
+    onCaptured: (Uri) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasCameraPermission = granted
+        if (!granted) onDismiss()
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasCameraPermission) {
+            permissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
+
+    if (!hasCameraPermission) return
+
+    val imageCapture = remember {
+        ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .build()
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            AndroidView(
+                factory = { ctx ->
+                    val previewView = PreviewView(ctx)
+                    val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                    cameraProviderFuture.addListener({
+                        val cameraProvider = cameraProviderFuture.get()
+                        val preview = androidx.camera.core.Preview.Builder().build().also {
+                            it.surfaceProvider = previewView.surfaceProvider
+                        }
+                        cameraProvider.unbindAll()
+                        cameraProvider.bindToLifecycle(
+                            lifecycleOwner,
+                            CameraSelector.DEFAULT_BACK_CAMERA,
+                            preview,
+                            imageCapture,
+                        )
+                    }, ContextCompat.getMainExecutor(ctx))
+                    previewView
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 48.dp),
+                horizontalArrangement = Arrangement.spacedBy(32.dp),
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text("キャンセル", color = Color.White, fontSize = 16.sp)
+                }
+                OutlinedButton(
+                    onClick = {
+                        val file = java.io.File(
+                            context.filesDir,
+                            "photos/seed_${System.currentTimeMillis()}.jpg"
+                        )
+                        file.parentFile?.mkdirs()
+                        val options = ImageCapture.OutputFileOptions.Builder(file).build()
+                        imageCapture.takePicture(
+                            options,
+                            ContextCompat.getMainExecutor(context),
+                            object : ImageCapture.OnImageSavedCallback {
+                                override fun onImageSaved(output: ImageCapture.OutputFileResults) {
+                                    onCaptured(Uri.fromFile(file))
+                                }
+                                override fun onError(exc: ImageCaptureException) {}
+                            }
+                        )
+                    },
+                    shape = CircleShape,
+                    modifier = Modifier.size(64.dp),
+                    border = BorderStroke(2.dp, Secondary),
+                    contentPadding = PaddingValues(0.dp),
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        modifier = Modifier.size(52.dp),
+                    ) {}
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun HarvestBottomBar(onHarvestClick: () -> Unit) {
     Surface(
         color = Color.White,
@@ -541,7 +691,7 @@ private fun HarvestBottomBar(onHarvestClick: () -> Unit) {
     ) {
         Column {
             HorizontalDivider(color = Divider)
-            Box(modifier = Modifier.padding(16.dp)) {
+            Box(modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 32.dp)) {
                 Button(
                     onClick = onHarvestClick,
                     modifier = Modifier

@@ -114,6 +114,13 @@ class DetailViewModel @Inject constructor(
         }
     }
 
+    fun updateSeedPhoto(uri: String) {
+        val cultivationId = _uiState.value.cultivation?.id ?: return
+        viewModelScope.launch {
+            cultivationRepository.updateSeedPhotoUri(cultivationId, uri)
+        }
+    }
+
     fun clearEpaperMessage() {
         _uiState.value = _uiState.value.copy(epaperMessage = null)
     }

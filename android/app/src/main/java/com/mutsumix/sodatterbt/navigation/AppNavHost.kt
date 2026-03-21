@@ -1,14 +1,28 @@
 package com.mutsumix.sodatterbt.navigation
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.mutsumix.sodatterbt.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -35,6 +49,7 @@ import com.mutsumix.sodatterbt.ui.qrscan.QrScanScreen
 import com.mutsumix.sodatterbt.ui.seeding.SeedingScreen
 import com.mutsumix.sodatterbt.ui.settings.SettingsScreen
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppNavHost() {
     val navController = rememberNavController()
@@ -59,6 +74,11 @@ fun AppNavHost() {
     } == true
 
     Scaffold(
+        topBar = {
+            if (showBottomBar) {
+                AppTopBar(currentDestination)
+            }
+        },
         bottomBar = {
             if (showBottomBar) {
                 AppBottomBar(navController, currentDestination)
@@ -161,6 +181,56 @@ fun AppNavHost() {
                 SettingsScreen(innerPadding = innerPadding)
             }
         }
+    }
+}
+
+private val DividerColor = Color(0xFFD4D4D4)
+private val OnBackground = Color(0xFF1A1A1C)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AppTopBar(currentDestination: NavDestination?) {
+    val isHome = currentDestination?.hierarchy?.any { it.hasRoute(Home::class) } == true
+    val title = when {
+        isHome -> null // ホーム画面はロゴ+アプリ名
+        currentDestination?.hierarchy?.any { it.hasRoute(History::class) } == true -> "履歴"
+        currentDestination?.hierarchy?.any { it.hasRoute(Settings::class) } == true -> "設定"
+        else -> null
+    }
+
+    androidx.compose.foundation.layout.Column {
+        CenterAlignedTopAppBar(
+            title = {
+                if (isHome) {
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Icon(
+                            painter = painterResource(id = R.mipmap.ic_launcher_foreground),
+                            contentDescription = null,
+                            modifier = androidx.compose.ui.Modifier.size(32.dp),
+                            tint = Color.Unspecified,
+                        )
+                        Spacer(modifier = androidx.compose.ui.Modifier.width(8.dp))
+                        Text(
+                            text = "Sodatter-BT",
+                            color = OnBackground,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Normal,
+                        )
+                    }
+                } else if (title != null) {
+                    Text(
+                        text = title,
+                        color = OnBackground,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Normal,
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                containerColor = Color.White,
+            ),
+        )
+        HorizontalDivider(color = DividerColor)
     }
 }
 

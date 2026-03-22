@@ -61,6 +61,9 @@ export default function Home() {
     if (tab === 'history') {
       navigate('/history');
     }
+    if (tab === 'statistics') {
+      navigate('/statistics');
+    }
     if (tab === 'settings') {
       navigate('/settings');
     }
@@ -151,7 +154,7 @@ export default function Home() {
 
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-[#D4D4D4] z-10" style={{ width: '375px' }}>
-        <div className="grid grid-cols-3 h-16">
+        <div className="grid grid-cols-4 h-16">
           <button
             onClick={() => handleTabClick('home')}
             className={`flex flex-col items-center justify-center gap-1 transition-colors ${
@@ -165,7 +168,7 @@ export default function Home() {
               ホーム
             </span>
             {activeTab === 'home' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#5B8BD4]" style={{ width: '125px' }}></div>
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#5B8BD4]" style={{ width: '93.75px' }}></div>
             )}
           </button>
 
@@ -182,7 +185,24 @@ export default function Home() {
               履歴
             </span>
             {activeTab === 'history' && (
-              <div className="absolute bottom-0 h-0.5 bg-[#5B8BD4]" style={{ width: '125px', left: '125px' }}></div>
+              <div className="absolute bottom-0 h-0.5 bg-[#5B8BD4]" style={{ width: '93.75px', left: '93.75px' }}></div>
+            )}
+          </button>
+
+          <button
+            onClick={() => handleTabClick('statistics')}
+            className={`flex flex-col items-center justify-center gap-1 transition-colors ${
+              activeTab === 'statistics' ? 'text-[#5B8BD4]' : 'text-[#6B6B6B]'
+            }`}
+          >
+            <div className="w-6 h-6 flex items-center justify-center">
+              <i className={`${activeTab === 'statistics' ? 'ri-bar-chart-2-fill' : 'ri-bar-chart-2-line'} text-xl`}></i>
+            </div>
+            <span className="text-[0.625rem]" style={{ fontFamily: 'Noto Sans JP, sans-serif' }}>
+              統計
+            </span>
+            {activeTab === 'statistics' && (
+              <div className="absolute bottom-0 h-0.5 bg-[#5B8BD4]" style={{ width: '93.75px', left: '187.5px' }}></div>
             )}
           </button>
 
@@ -199,7 +219,7 @@ export default function Home() {
               設定
             </span>
             {activeTab === 'settings' && (
-              <div className="absolute bottom-0 h-0.5 bg-[#5B8BD4]" style={{ width: '125px', left: '250px' }}></div>
+              <div className="absolute bottom-0 h-0.5 bg-[#5B8BD4]" style={{ width: '93.75px', left: '281.25px' }}></div>
             )}
           </button>
         </div>

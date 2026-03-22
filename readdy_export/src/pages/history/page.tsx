@@ -280,7 +280,7 @@ export default function HistoryPage() {
         className="fixed bottom-0 bg-white border-t border-[#D4D4D4] z-10"
         style={{ width: '375px' }}
       >
-        <div className="grid grid-cols-3 h-16">
+        <div className="grid grid-cols-4 h-16">
           {/* Home */}
           <button
             onClick={() => navigate('/')}
@@ -307,8 +307,22 @@ export default function HistoryPage() {
             </span>
           </button>
 
+          {/* Statistics */}
+          <button
+            onClick={() => navigate('/statistics')}
+            className="relative flex flex-col items-center justify-center gap-1 text-[#6B6B6B] transition-colors"
+          >
+            <div className="w-6 h-6 flex items-center justify-center">
+              <i className="ri-bar-chart-2-line text-xl"></i>
+            </div>
+            <span className="text-[0.625rem]" style={{ fontFamily: 'Noto Sans JP, sans-serif' }}>
+              統計
+            </span>
+          </button>
+
           {/* Settings */}
           <button
+            onClick={() => navigate('/settings')}
             className="relative flex flex-col items-center justify-center gap-1 text-[#6B6B6B] transition-colors"
           >
             <div className="w-6 h-6 flex items-center justify-center">

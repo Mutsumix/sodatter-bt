@@ -9,6 +9,7 @@ import HarvestPage from "../pages/harvest/page";
 import LabelPrintPage from "../pages/label-print/page";
 import HistoryPage from "../pages/history/page";
 import SettingsPage from "../pages/settings/page";
+import StatisticsPage from "../pages/statistics/page";
 
 const routes: RouteObject[] = [
   {
@@ -46,6 +47,10 @@ const routes: RouteObject[] = [
   {
     path: "/settings",
     element: <SettingsPage />,
+  },
+  {
+    path: "/statistics",
+    element: <StatisticsPage />,
   },
   {
     path: "*",

@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 
 private val Primary = Color(0xFF5B8BD4)
 private val OnBackground = Color(0xFF1A1A1C)
@@ -25,7 +26,10 @@ private val Muted = Color(0xFF6B6B6B)
 private val tabs = listOf("収穫推移", "生育分析")
 
 @Composable
-fun StatisticsScreen(innerPadding: PaddingValues) {
+fun StatisticsScreen(
+    innerPadding: PaddingValues,
+    viewModel: StatisticsViewModel = hiltViewModel(),
+) {
     var selectedTab by remember { mutableIntStateOf(0) }
 
     Column(
@@ -60,8 +64,8 @@ fun StatisticsScreen(innerPadding: PaddingValues) {
         }
 
         when (selectedTab) {
-            0 -> HarvestTrendsTab()
-            1 -> GrowthAnalysisTab()
+            0 -> HarvestTrendsTab(viewModel = viewModel)
+            1 -> GrowthAnalysisTab(viewModel = viewModel)
         }
     }
 }

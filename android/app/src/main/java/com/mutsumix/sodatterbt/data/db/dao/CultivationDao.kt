@@ -26,6 +26,14 @@ interface CultivationDao {
     @Query("SELECT * FROM cultivations WHERE is_active = 0 ORDER BY harvest_date DESC")
     fun getHarvestedCultivations(): Flow<List<CultivationEntity>>
 
+    // 統計用: 収穫済みの全記録
+    @Query("SELECT * FROM cultivations WHERE is_active = 0 AND harvest_date IS NOT NULL ORDER BY harvest_date DESC")
+    fun getHarvestedForStatistics(): Flow<List<CultivationEntity>>
+
+    // 品種一覧（フィルター用）
+    @Query("SELECT DISTINCT variety_name FROM cultivations WHERE is_active = 0")
+    fun getDistinctVarieties(): Flow<List<String>>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insert(cultivation: CultivationEntity): Long
 

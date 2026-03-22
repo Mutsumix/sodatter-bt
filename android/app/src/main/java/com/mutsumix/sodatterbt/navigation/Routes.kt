@@ -2,9 +2,10 @@ package com.mutsumix.sodatterbt.navigation
 
 import kotlinx.serialization.Serializable
 
-// BottomNavタブ（3画面）
+// BottomNavタブ（4画面）
 @Serializable object Home
 @Serializable object History
+@Serializable object Statistics
 @Serializable object Settings
 
 // スタックに積む画面（6画面）

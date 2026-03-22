@@ -33,6 +33,12 @@ data class ScatterPoint(
     val varietyName: String,
 )
 
+data class VarietyTotal(
+    val varietyName: String,
+    val totalGram: Float,
+    val percentage: Float, // 0..1
+)
+
 data class StatisticsUiState(
     val monthlyData: List<MonthlyHarvest> = emptyList(),
     val dailyData: List<DailyHarvest> = emptyList(),
@@ -41,6 +47,7 @@ data class StatisticsUiState(
     val varieties: List<String> = emptyList(),
     val selectedVariety: String? = null, // null = すべて
     val totalGram: Float = 0f,
+    val varietyTotals: List<VarietyTotal> = emptyList(),
 )
 
 private val yearMonthFormat = SimpleDateFormat("yyyy/MM", Locale.JAPAN)
@@ -148,6 +155,21 @@ class StatisticsViewModel @Inject constructor(
 
         val totalGram = filtered.mapNotNull { it.harvestWeightGram }.sum()
 
+        // 品種別合計
+        val varietyTotals = if (selectedVariety == null) {
+            val byVariety = mutableMapOf<String, Float>()
+            records.forEach { record ->
+                val weight = record.harvestWeightGram ?: return@forEach
+                byVariety[record.varietyName] = (byVariety[record.varietyName] ?: 0f) + weight
+            }
+            val allTotal = byVariety.values.sum().coerceAtLeast(1f)
+            byVariety.entries
+                .sortedByDescending { it.value }
+                .map { (name, total) -> VarietyTotal(name, total, total / allTotal) }
+        } else {
+            emptyList()
+        }
+
         return StatisticsUiState(
             monthlyData = monthlyData,
             dailyData = dailyData,
@@ -156,6 +178,7 @@ class StatisticsViewModel @Inject constructor(
             varieties = varieties,
             selectedVariety = selectedVariety,
             totalGram = totalGram,
+            varietyTotals = varietyTotals,
         )
     }
 }

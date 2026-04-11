@@ -593,7 +593,7 @@ private fun AboutSection(onLicensesClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("バージョン", color = OnBackground, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                Text("1.0.0", color = Muted, fontSize = 14.sp)
+                Text(com.mutsumix.sodatterbt.BuildConfig.VERSION_NAME, color = Muted, fontSize = 14.sp)
             }
             HorizontalDivider(color = Color(0xFFF0F0F0), modifier = Modifier.padding(horizontal = 16.dp))
             Row(

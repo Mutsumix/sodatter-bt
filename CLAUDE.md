@@ -52,3 +52,4 @@
 - LabelPrintViewModelがgetHarvestedCultivationsのみ参照し、未収穫時にcultivation=nullでサイレントリターン
 - StarXpand SDKのCJKクラス名が大文字小文字違い（CJKCharacterType → CjkCharacterType）
 - SM-S210iの日本語印刷はstyleSecondPriorityCharacterEncoding(CharacterEncodingType.Japanese)が正解
+- 設定画面のバージョン表示をハードコード（"1.0.0"）していたため、バージョン更新時に追従しなかった。BuildConfig.VERSION_NAMEを使うべき

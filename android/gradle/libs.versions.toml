@@ -19,6 +19,7 @@ stario10 = "1.6.0"
 camerax = "1.4.1"
 mlkitBarcodeScanning = "17.3.0"
 zxingCore = "3.5.3"
+vico = "2.0.1"
 
 [libraries]
 # AndroidX Core
@@ -73,6 +74,9 @@ mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning"
 
 # ZXing (QR code generation)
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxingCore" }
+
+# Vico (Charts)
+vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }
 
 # StarXpand SDK (repo: https://packagecloud.io/StarMicronics/stario10-android-sdk/maven2)
 starmicronics-stario10 = { group = "com.starmicronics", name = "stario10", version.ref = "stario10" }

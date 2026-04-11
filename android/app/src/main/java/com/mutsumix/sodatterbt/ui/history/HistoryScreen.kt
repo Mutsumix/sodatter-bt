@@ -109,10 +109,6 @@ fun HistoryScreen(
                         )
                     }
                 }
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    StatisticsTeaser()
-                }
             }
         }
     }
@@ -284,25 +280,6 @@ private fun DeviceSlotBadge(label: String, size: Int = 24) {
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(label, color = Secondary, fontSize = (size * 0.5f).sp)
-        }
-    }
-}
-
-@Composable
-private fun StatisticsTeaser() {
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = Surface2,
-        border = BorderStroke(1.dp, Color(0xFFC8C8C8)),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text("📊", fontSize = 24.sp, color = Color(0xFFABABAB))
-            Text("統計 — 近日公開", color = Color(0xFFABABAB), fontSize = 14.sp)
         }
     }
 }

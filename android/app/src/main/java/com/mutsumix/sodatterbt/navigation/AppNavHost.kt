@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
@@ -50,6 +51,7 @@ import com.mutsumix.sodatterbt.ui.photorecord.PhotoRecordScreen
 import com.mutsumix.sodatterbt.ui.qrscan.QrScanScreen
 import com.mutsumix.sodatterbt.ui.seeding.SeedingScreen
 import com.mutsumix.sodatterbt.ui.settings.SettingsScreen
+import com.mutsumix.sodatterbt.ui.statistics.StatisticsScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -72,6 +74,7 @@ fun AppNavHost() {
     val showBottomBar = currentDestination?.hierarchy?.any { dest ->
         dest.hasRoute(Home::class) ||
             dest.hasRoute(History::class) ||
+            dest.hasRoute(Statistics::class) ||
             dest.hasRoute(Settings::class)
     } == true
 
@@ -179,6 +182,9 @@ fun AppNavHost() {
                     },
                 )
             }
+            composable<Statistics> {
+                StatisticsScreen(innerPadding = innerPadding)
+            }
             composable<Settings> {
                 SettingsScreen(innerPadding = innerPadding)
             }
@@ -198,6 +204,7 @@ private fun AppTopBar(currentDestination: NavDestination?) {
     val title = when {
         isHome -> null // ホーム画面はロゴ+アプリ名
         currentDestination?.hierarchy?.any { it.hasRoute(History::class) } == true -> "履歴"
+        currentDestination?.hierarchy?.any { it.hasRoute(Statistics::class) } == true -> "統計"
         currentDestination?.hierarchy?.any { it.hasRoute(Settings::class) } == true -> "設定"
         else -> null
     }
@@ -263,6 +270,13 @@ private fun AppBottomBar(
             onClick = { navController.navigateTopLevel(History) },
             icon = { Icon(Icons.Filled.History, contentDescription = null) },
             label = { Text("履歴") },
+            colors = navItemColors,
+        )
+        NavigationBarItem(
+            selected = currentDestination?.hierarchy?.any { it.hasRoute(Statistics::class) } == true,
+            onClick = { navController.navigateTopLevel(Statistics) },
+            icon = { Icon(Icons.Filled.BarChart, contentDescription = null) },
+            label = { Text("統計") },
             colors = navItemColors,
         )
         NavigationBarItem(

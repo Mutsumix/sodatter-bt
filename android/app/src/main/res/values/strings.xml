@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Sodatter-BT</string>
+    <string name="app_name">ソダッター</string>
     <string name="nav_home">ホーム</string>
     <string name="nav_history">履歴</string>
     <string name="nav_settings">設定</string>
